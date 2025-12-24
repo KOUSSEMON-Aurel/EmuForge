@@ -18,3 +18,5 @@ pub trait EmulatorPlugin: Send + Sync {
     /// prepare the launch configuration for a specific ROM.
     fn prepare_launch_config(&self, rom_path: &Path, output_dir: &Path) -> Result<LaunchConfig>;
 }
+
+pub mod ppsspp;

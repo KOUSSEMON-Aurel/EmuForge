@@ -12,7 +12,11 @@ struct LaunchConfig {
     env_vars: Vec<(String, String)>,
 }
 
+// Hide console window on Windows in release mode
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 fn main() {
+
     // Config injected at compile time via env var EMUFORGE_CONFIG_PATH
     let config_json = include_str!(env!("EMUFORGE_CONFIG_PATH"));
     let config: LaunchConfig = serde_json::from_str(config_json)

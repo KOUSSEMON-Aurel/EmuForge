@@ -1,6 +1,7 @@
 use emuforge_core::forge::{ExecutableForge, LaunchConfig};
 use emuforge_core::detection::FileAnalyzer;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
 use std::sync::Mutex;
 // use tauri::State;
 
@@ -18,16 +19,47 @@ fn forge_executable(
     rom_path: String,
     bios_path: Option<String>,
     output_dir: String,
+    fullscreen: bool,
     args: Vec<String>,
 ) -> Result<String, String> {
-    let config = LaunchConfig {
-        emulator_path: PathBuf::from(emulator_path),
-        rom_path: PathBuf::from(rom_path),
-        bios_path: bios_path.map(PathBuf::from),
-        args,
-        working_dir: None,
-        env_vars: vec![],
+    use emuforge_core::plugin::EmulatorPlugin;
+    use emuforge_core::plugin::ppsspp::PpssppPlugin;
+    
+    let rom_p = PathBuf::from(&rom_path);
+    let emu_p = PathBuf::from(&emulator_path);
+    
+    // Simple detection logic: 
+    // If emulator path contains "ppsspp" (case insensitive) OR extension implies PSP
+    let is_ppsspp = emulator_path.to_lowercase().contains("ppsspp");
+    
+    let mut config = if is_ppsspp {
+        // Use the plugin
+        let plugin = PpssppPlugin::new(Some(emu_p.clone()));
+        plugin.prepare_launch_config(&rom_p, Path::new(&output_dir))
+            .map_err(|e| format!("Plugin error: {}", e))?
+    } else {
+        // Fallback to manual config
+        LaunchConfig {
+            emulator_path: emu_p,
+            rom_path: rom_p,
+            bios_path: bios_path.map(PathBuf::from),
+            args,
+            working_dir: None,
+            env_vars: vec![],
+        }
     };
+
+    // Apply generic full screen override if requested
+    if fullscreen {
+        // For PPSSPP, the flag is --fullscreen
+        // For others, we might need a mapping, but for now we apply common flags or just this one
+        if is_ppsspp {
+            config.args.push("--fullscreen".to_string());
+        }
+        // TODO: support other emulators fullscreen flags
+    }
+
+
 
 
     // Calculate stub path relative to the current working directory or binary location

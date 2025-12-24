@@ -33,6 +33,7 @@ function App() {
   const [romPath, setRomPath] = useState('');
   const [emulatorPath, setEmulatorPath] = useState('');
   const [biosPath, setBiosPath] = useState('');
+  const [fullscreen, setFullscreen] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isForging, setIsForging] = useState(false);
@@ -103,6 +104,7 @@ function App() {
         romPath,
         biosPath: biosPath || null,
         outputDir: 'output',
+        fullscreen,
         args: []
       });
       setStatus(`Success! Executable ready at: ${result}`);
@@ -189,7 +191,7 @@ function App() {
               </div>
             </div>
 
-            <div className="col input-wrapper">
+            <div className="input-group half-width">
               <div className="label-row"><label>BIOS (Optional)</label></div>
               <div className="input-container">
                 <input
@@ -205,6 +207,19 @@ function App() {
               </div>
             </div>
           </div>
+
+          {/* Options Row */}
+          <div className="options-row">
+            <label className="checkbox-container">
+              <input
+                type="checkbox"
+                checked={fullscreen}
+                onChange={(e) => setFullscreen(e.target.checked)}
+              />
+              <span className="checkbox-text">Start in Fullscreen</span>
+            </label>
+          </div>
+
         </div>
 
         <hr className="divider" />
