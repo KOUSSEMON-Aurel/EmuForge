@@ -2,9 +2,12 @@ use emuforge_core::forge::{ExecutableForge, LaunchConfig};
 use emuforge_core::detection::FileAnalyzer;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::State;
+// use tauri::State;
 
+
+#[allow(dead_code)]
 struct AppState {
+
     output_dir: Mutex<PathBuf>,
 }
 
@@ -13,16 +16,19 @@ fn forge_executable(
     game_name: String,
     emulator_path: String,
     rom_path: String,
+    bios_path: Option<String>,
     output_dir: String,
     args: Vec<String>,
 ) -> Result<String, String> {
     let config = LaunchConfig {
         emulator_path: PathBuf::from(emulator_path),
         rom_path: PathBuf::from(rom_path),
+        bios_path: bios_path.map(PathBuf::from),
         args,
         working_dir: None,
         env_vars: vec![],
     };
+
 
     // Calculate stub path relative to the current working directory or binary location
     // In dev mode, we assume we run from the project root or we find it in ../stub
@@ -76,6 +82,8 @@ fn validate_file(path: String) -> Result<String, String> {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+
         .manage(AppState {
             output_dir: Mutex::new(PathBuf::from("output")),
         })

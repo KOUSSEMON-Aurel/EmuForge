@@ -8,6 +8,8 @@ pub struct LaunchConfig {
     pub emulator_path: PathBuf,
     /// Path to the ROM file (relative or absolute).
     pub rom_path: PathBuf,
+    /// Optional path to the BIOS file.
+    pub bios_path: Option<PathBuf>,
     /// Arguments to pass to the emulator.
     pub args: Vec<String>,
     /// Working directory for the emulator process.
