@@ -205,9 +205,10 @@ fn run_launcher_mode() {
 
     let mut cmd = Command::new(&config.emulator_path);
     
-    // For PCSX2 and some emulators, ROM must come BEFORE other flags
-    cmd.arg(&config.rom_path);
+    // Standard convention: [options] [file]
+    // Passing args before ROM is safer for most emulators (DuckStation, Dolphin, etc.)
     cmd.args(&config.args);
+    cmd.arg(&config.rom_path);
     
     if let Some(dir) = config.working_dir {
         cmd.current_dir(dir);
