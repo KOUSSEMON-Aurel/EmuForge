@@ -22,3 +22,25 @@ Thumbs.db
 # EmuForge temporary build artifacts
 /tmp/
 /output/
+/bin/
+squashfs-root/
+.emuforge/
+
+# Games & Large Binaries
+**/*.iso
+**/*.cso
+**/*.rvz
+**/*.nsp
+**/*.xci
+**/*.wua
+**/*.wud
+**/*.chd
+**/*.gdi
+**/*.cdi
+**/*.AppImage
+**/*.bin
+!stub/src/main.rs # Keep source files that end in .rs even if some weird rule matches (unlikely)
+
+# OS
+.DS_Store
+Thumbs.db

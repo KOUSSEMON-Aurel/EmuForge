@@ -5,11 +5,16 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
+flate2 = "1.1.5"
+reqwest = "0.12.28"
 serde.workspace = true
 serde_json.workspace = true
+sevenz-rust = "0.6.1"
+tar = "0.4.44"
 thiserror.workspace = true
 walkdir.workspace = true
 which = "8.0.0"
+zip = "7.0.0"
 
 [dev-dependencies]
 tempfile = "3.24.0"

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { listen } from '@tauri-apps/api/event';
 import './App.css';
 
 // --- Icons (Feather Icons style) ---
@@ -13,9 +15,7 @@ const MoonIcon = () => (
 const FolderIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
 );
-const FileIcon = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" /><polyline points="13 2 13 9 20 9" /></svg>
-);
+
 const PlayIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5 3 19 12 5 21 5 3" /></svg>
 );
@@ -33,30 +33,72 @@ function App() {
   const [romPath, setRomPath] = useState('');
   const [emulatorPath, setEmulatorPath] = useState('');
   const [biosPath, setBiosPath] = useState('');
+  const [selectedPlugin, setSelectedPlugin] = useState('auto');
+  const [targetOs, setTargetOs] = useState('auto');
   const [fullscreen, setFullscreen] = useState(true);
+  const [portableMode, setPortableMode] = useState(false);
+
   const [status, setStatus] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
   const [isForging, setIsForging] = useState(false);
+  const [progressMessage, setProgressMessage] = useState("");
+
+  // Modal State
+  const [showEmulatorModal, setShowEmulatorModal] = useState(false);
+  // Download State
+  const [downloadingEmu, setDownloadingEmu] = useState<string | null>(null);
+  const [installedEmulators, setInstalledEmulators] = useState<string[]>([]);
 
   // Initialize theme
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
 
+  // Fetch installed list when modal opens
+  useEffect(() => {
+    if (showEmulatorModal) {
+      invoke('get_installed_emulators').then((res) => {
+        console.log("Installed Emulators:", res);
+        setInstalledEmulators(res as string[]);
+      }).catch((e) => console.error("Failed to fetch installed:", e));
+    }
+  }, [showEmulatorModal]);
+
   const toggleTheme = () => {
+
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
+
+  // RECOMMENDATION ENGINE
+  const getRecommendedEmulator = () => {
+    if (!romPath) return null;
+    const ext = romPath.split('.').pop()?.toLowerCase();
+
+    // Map extension to emulator ID
+    switch (ext) {
+      case 'iso': return ['ppsspp', 'pcsx2', 'dolphin', 'xemu', 'rpcs3']; // Ambiguous, generic Recommendation?
+      case 'cso': return ['ppsspp'];
+      case 'nds': return ['melonds'];
+      case '3ds': case 'cia': return ['lime3ds'];
+      case 'nsp': case 'xci': return ['ryujinx'];
+      case 'wua': case 'wud': return ['cemu'];
+      case 'gcm': case 'rvz': return ['dolphin'];
+      case 'gdi': case 'cdi': return ['redream'];
+      default: return [];
+    }
+  };
+
+  const recommendations = getRecommendedEmulator() || [];
 
   async function selectRom() {
     const selected = await open({
       multiple: false,
       filters: [{
         name: 'Game ROM',
-        extensions: ['iso', 'cso', 'bin', 'nsp', 'xci', 'rvz', 'wbfs', 'chd']
+        extensions: ['iso', 'cso', 'bin', 'nsp', 'xci', 'rvz', 'wbfs', 'chd', 'nds', '3ds', 'cia', 'wua', 'gdi', 'cdi']
       }]
     });
     if (selected) {
-      // Just take the first selection if somehow multiple return (though multiple: false)
       const pathStr = Array.isArray(selected) ? selected[0] : (selected as string);
       if (!pathStr) return;
 
@@ -68,21 +110,50 @@ function App() {
           setGameName(name);
         }
       }
+      // Auto-open modal if emulator is empty? No, maybe intrusive.
     }
   }
 
-  async function selectEmulator() {
+  // Modified: Opens Modal instead of direct file picker
+  function openEmulatorModal() {
+    setShowEmulatorModal(true);
+  }
+
+  async function handleBrowseLocal() {
     const selected = await open({
       multiple: false,
       filters: [{ name: 'Executable', extensions: ['exe', ''] }]
     });
-    if (selected) setEmulatorPath(selected as string);
+    if (selected) {
+      setEmulatorPath(selected as string);
+      setShowEmulatorModal(false);
+    }
+  }
+
+  async function handleDownload(emuId: string) {
+    setDownloadingEmu(emuId);
+    try {
+      const path = await invoke('download_emulator', { emuId: emuId });
+
+      // Update local state to reflect installation immediately
+      setInstalledEmulators(prev => [...prev, emuId]);
+
+      // Auto-select the new path
+      setEmulatorPath(path as string);
+      setShowEmulatorModal(false);
+    } catch (e) {
+      setStatus(`Download failed: ${e}`);
+      console.error("Download error:", e);
+    } finally {
+      setDownloadingEmu(null);
+    }
+
   }
 
   async function selectBios() {
     const selected = await open({
       multiple: false,
-      filters: [{ name: 'BIOS File', extensions: ['bin', 'rom', 'img', 'bios'] }]
+      filters: [{ name: 'BIOS File', extensions: ['bin', 'rom', 'img', 'bios', '*'] }]
     });
     if (selected) setBiosPath(selected as string);
   }
@@ -96,6 +167,12 @@ function App() {
 
     setIsForging(true);
     setStatus(null);
+    setProgressMessage("");
+
+    // Setup progress listener
+    const unlisten = await listen('forge-progress', (event: any) => {
+      setProgressMessage(event.payload.message);
+    });
 
     try {
       const result = await invoke('forge_executable', {
@@ -104,32 +181,57 @@ function App() {
         romPath,
         biosPath: biosPath || null,
         outputDir: 'output',
+        plugin: selectedPlugin,
+        targetOs,
         fullscreen,
-        args: []
+        args: [],
+        portableMode: portableMode
+
       });
+      unlisten();
       setStatus(`Success! Executable ready at: ${result}`);
       setIsSuccess(true);
     } catch (error) {
+      unlisten();
       setStatus(`Error: ${error}`);
       setIsSuccess(false);
     } finally {
       setIsForging(false);
+      setProgressMessage("");
     }
   }
+
+  const emuList = [
+    { id: 'ppsspp', name: 'PPSSPP', desc: 'Best for PSP' },
+    { id: 'pcsx2', name: 'PCSX2', desc: 'Best for PS2' },
+    { id: 'duckstation', name: 'DuckStation', desc: 'Best for PS1' },
+    { id: 'dolphin', name: 'Dolphin', desc: 'GameCube / Wii' },
+    { id: 'ryujinx', name: 'Ryujinx', desc: 'Nintendo Switch' },
+    { id: 'cemu', name: 'Cemu', desc: 'Wii U' },
+    { id: 'melonds', name: 'melonDS', desc: 'Nintendo DS' },
+    { id: 'lime3ds', name: 'Lime3DS', desc: 'Nintendo 3DS' },
+    { id: 'redream', name: 'Redream', desc: 'Dreamcast' },
+    { id: 'rpcs3', name: 'RPCS3', desc: 'PlayStation 3' },
+    { id: 'xemu', name: 'xemu', desc: 'Original Xbox' },
+  ];
 
   return (
     <div className="app-container">
       {/* Top Bar */}
-      <div className="top-bar">
+      {/* Top Bar with Window Controls */}
+      <div className="top-bar" data-tauri-drag-region>
         <div className="brand">
           <span className="logo-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zm0 9l2.5-1.25L12 8.5l-2.5 1.25L12 11zm0 2.5l-5-2.5-5 2.5L12 22l10-8.5-5-2.5-5 2.5z" /></svg>
           </span>
           <span className="brand-text">EmuForge</span>
         </div>
-        <button className="theme-toggle" onClick={toggleTheme} title="Toggle Theme">
-          {theme === 'light' ? <MoonIcon /> : <SunIcon />}
-        </button>
+        <div className="window-controls">
+          <button className="theme-toggle" onClick={toggleTheme} title="Toggle Theme" style={{ marginRight: '8px' }}>
+            {theme === 'light' ? <MoonIcon /> : <SunIcon />}
+          </button>
+          <button className="win-btn close-btn-win" onClick={() => getCurrentWindow().close()} title="Close" style={{ zIndex: 9999, position: 'relative' }}>&times;</button>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -185,13 +287,13 @@ function App() {
                   value={emulatorPath}
                   onChange={(e) => setEmulatorPath(e.target.value)}
                 />
-                <button className="input-action-btn" onClick={selectEmulator} title="Browse Executable">
+                <button className="input-action-btn" onClick={openEmulatorModal} title="Select or Download Emulator">
                   <SettingsIcon />
                 </button>
               </div>
             </div>
 
-            <div className="input-group half-width">
+            <div className="col input-wrapper">
               <div className="label-row"><label>BIOS (Optional)</label></div>
               <div className="input-container">
                 <input
@@ -208,6 +310,49 @@ function App() {
             </div>
           </div>
 
+          {/* Plugin Selection & Target OS */}
+          <div className="row">
+            <div className="col input-wrapper">
+              <div className="label-row"><label>Emulator Plugin</label></div>
+              <div className="input-container">
+                <select
+                  className="text-input"
+                  value={selectedPlugin}
+                  onChange={(e) => setSelectedPlugin(e.target.value)}
+                >
+                  <option value="auto">Auto-Detect</option>
+                  <option value="ppsspp">PPSSPP (PSP)</option>
+                  <option value="pcsx2">PCSX2 (PS2)</option>
+                  <option value="duckstation">DuckStation (PS1)</option>
+                  <option value="dolphin">Dolphin (GC/Wii)</option>
+                  <option value="rpcs3">RPCS3 (PS3)</option>
+                  <option value="cemu">Cemu (Wii U)</option>
+                  <option value="ryujinx">Ryujinx (Switch)</option>
+                  <option value="xemu">xemu (Xbox)</option>
+                  <option value="redream">Redream (Dreamcast)</option>
+                  <option value="lime3ds">Lime3DS (3DS)</option>
+                  <option value="melonds">melonDS (DS)</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="col input-wrapper">
+              <div className="label-row"><label>Target Platform</label></div>
+              <div className="input-container">
+                <select
+                  className="text-input"
+                  value={targetOs}
+                  onChange={(e) => setTargetOs(e.target.value)}
+                >
+                  <option value="auto">Auto (Match Emulator)</option>
+                  <option value="windows">Windows (.exe)</option>
+                  <option value="linux">Linux (Binary)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+
           {/* Options Row */}
           <div className="options-row">
             <label className="checkbox-container">
@@ -218,7 +363,22 @@ function App() {
               />
               <span className="checkbox-text">Start in Fullscreen</span>
             </label>
+
+            <label className="checkbox-container">
+              <input
+                type="checkbox"
+                checked={portableMode}
+                onChange={(e) => setPortableMode(e.target.checked)}
+              />
+              <span className="checkbox-text">📦 Mode Portable (All-in-One)</span>
+            </label>
           </div>
+
+          {portableMode && (
+            <div className="portable-info">
+              <small>⚠️ L'exécutable contiendra l'émulateur, la ROM et le BIOS. Taille finale pouvant aller de 200 Mo à plusieurs Go.</small>
+            </div>
+          )}
 
         </div>
 
@@ -230,16 +390,98 @@ function App() {
           disabled={isForging}
         >
           {isForging ? <div className="spinner"></div> : <PlayIcon />}
-          <span>{isForging ? 'Forging Executable...' : 'Forge Executable'}</span>
+          <span>
+            {isForging
+              ? (progressMessage || 'Forging Executable...')
+              : 'Forge Executable'}
+          </span>
         </button>
 
-        {status && (
-          <div className={`status-bar ${isSuccess ? 'status-success' : 'status-error'}`}>
-            {isSuccess ? '✔ ' : '✖ '} {status}
-          </div>
-        )}
+
 
       </div>
+
+      {/* MODAL */}
+      {showEmulatorModal && (
+        <div className="modal-overlay" onClick={() => setShowEmulatorModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2 className="modal-title">Emulator Selection</h2>
+              <button className="close-btn" onClick={() => setShowEmulatorModal(false)}>&times;</button>
+            </div>
+
+            <div className="modal-body">
+              <div style={{ marginBottom: '1rem' }}>
+                <button className="forge-btn" style={{ background: 'var(--surface-hover)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }} onClick={handleBrowseLocal}>
+                  <FolderIcon /> Choose from Computer
+                </button>
+              </div>
+
+              <div className="divider" style={{ margin: '0.5rem 0' }}></div>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>Download & Install</label>
+
+              <div style={{ maxHeight: '300px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingRight: '4px' }}>
+                {emuList.map(emu => {
+                  const isRecommended = recommendations.includes(emu.id);
+                  const isInstalled = installedEmulators.includes(emu.id);
+
+                  return (
+                    <div key={emu.id} className="emu-option-btn" onClick={() => handleDownload(emu.id)}>
+                      <div className="emu-info">
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                          <span className="emu-name">{emu.name}</span>
+                          {isRecommended && <span className="recommendation-badge">Recommended</span>}
+                        </div>
+                        <span className="emu-desc">{emu.desc}</span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', color: isInstalled ? 'var(--status-success, #2da44e)' : 'inherit' }}>
+                        {downloadingEmu === emu.id ?
+                          <div className="spinner" style={{ borderColor: 'var(--text-secondary)', borderTopColor: 'transparent', width: 14, height: 14 }}></div>
+                          : isInstalled ?
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            :
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        }
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* STATUS MODAL */}
+      {status && !isForging && (
+        <div className="modal-overlay" onClick={() => setStatus(null)}>
+          <div className="modal-content status-popup-content" onClick={e => e.stopPropagation()}>
+
+            {isSuccess ? (
+              <svg className="status-icon-large" viewBox="0 0 24 24" fill="none" stroke="#2da44e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                <polyline points="22 4 12 14.01 9 11.01"></polyline>
+              </svg>
+            ) : (
+              <svg className="status-icon-large" viewBox="0 0 24 24" fill="none" stroke="#cf222e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="15" y1="9" x2="9" y2="15"></line>
+                <line x1="9" y1="9" x2="15" y2="15"></line>
+              </svg>
+            )}
+
+            <h2 className="status-title" style={{ color: isSuccess ? 'var(--text-main)' : '#cf222e' }}>
+              {isSuccess ? 'Success!' : 'Error'}
+            </h2>
+
+            <p className="status-message">{status}</p>
+
+            <button className="forge-btn" onClick={() => setStatus(null)} style={{ maxWidth: '200px' }}>
+              Close
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

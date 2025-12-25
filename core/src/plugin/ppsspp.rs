@@ -76,4 +76,15 @@ impl EmulatorPlugin for PpssppPlugin {
             env_vars: vec![],
         })
     }
+
+    fn can_handle(&self, binary_path: &Path) -> bool {
+        let name = binary_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        
+        name.contains("ppsspp")
+    }
 }
+
