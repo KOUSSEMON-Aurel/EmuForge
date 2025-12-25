@@ -127,8 +127,10 @@ fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
     
     // Launch the emulator
     let mut cmd = Command::new(&emulator_path);
+    // DuckStation syntax: [flags] -- <file>
+    cmd.arg("-fullscreen");
+    cmd.arg("--");
     cmd.arg(&rom_path);
-    cmd.args(&["-batch", "-nogui", "-fullscreen"]);
     cmd.env("XDG_CONFIG_HOME", &config_path);
     
     match cmd.status() {
