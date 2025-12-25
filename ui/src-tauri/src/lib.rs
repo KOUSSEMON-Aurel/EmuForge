@@ -247,6 +247,35 @@ fn forge_portable_executable(
         .to_string_lossy()
         .to_string();
     add_file_to_zip(&app, &mut zip, &rom_path, &rom_filename, rom_options)?;
+
+    // Handle CUE files dependencies (.bin files)
+    if let Some(ext) = rom_path.extension() {
+        if ext.to_string_lossy().eq_ignore_ascii_case("cue") {
+            let content = std::fs::read_to_string(&rom_path)
+                .map_err(|e| format!("Failed to read CUE file: {}", e))?;
+            
+            let parent_dir = rom_path.parent().unwrap_or(Path::new("."));
+            
+            for line in content.lines() {
+                if line.trim().starts_with("FILE") {
+                    // Extract filename: FILE "filename.bin" BINARY
+                    let parts: Vec<&str> = line.split('"').collect();
+                    if parts.len() >= 2 {
+                        let bin_filename = parts[1];
+                        let bin_path = parent_dir.join(bin_filename);
+                        
+                        if bin_path.exists() {
+                            let _ = app.emit("forge-progress", serde_json::json!({ 
+                                "percentage": 0, 
+                                "message": format!("Détection dépendance: {}...", bin_filename) 
+                            }));
+                            add_file_to_zip(&app, &mut zip, &bin_path, bin_filename, rom_options)?;
+                        }
+                    }
+                }
+            }
+        }
+    }
     
     // Add BIOS if present
     // Add BIOS if present
