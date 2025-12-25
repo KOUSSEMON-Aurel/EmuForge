@@ -233,7 +233,7 @@ fn forge_portable_executable(
         .ok_or("Invalid emulator path")?
         .to_string_lossy()
         .to_string();
-    add_file_to_zip(&mut zip, &emulator_path, &emu_filename, options)?;
+    add_file_to_zip(&app, &mut zip, &emulator_path, &emu_filename, options)?;
     
     // Add ROM
     // Optimization: Use Stored (no compression) for ROMs to speed up forging significantly.
@@ -246,7 +246,7 @@ fn forge_portable_executable(
         .ok_or("Invalid ROM path")?
         .to_string_lossy()
         .to_string();
-    add_file_to_zip(&mut zip, &rom_path, &rom_filename, rom_options)?;
+    add_file_to_zip(&app, &mut zip, &rom_path, &rom_filename, rom_options)?;
     
     // Add BIOS if present
     // Add BIOS if present
@@ -273,7 +273,7 @@ fn forge_portable_executable(
     // Add PCSX2 config if exists (now includes the BIOS we just copied)
     let pcsx2_config_dir = output_dir.join("pcsx2_data");
     if driver_id == "pcsx2" && pcsx2_config_dir.exists() {
-        add_directory_to_zip(&mut zip, &pcsx2_config_dir, "pcsx2_data", options)?;
+        add_directory_to_zip(&app, &mut zip, &pcsx2_config_dir, "pcsx2_data", options)?;
     }
     
     zip.finish().map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
@@ -369,8 +369,9 @@ fn forge_portable_executable(
     Ok(output_path.to_string_lossy().to_string())
 }
 
-/// Add a file to ZIP archive
+/// Add a file to ZIP archive with Progress
 fn add_file_to_zip<W: Write + std::io::Seek>(
+    app: &tauri::AppHandle,
     zip: &mut zip::ZipWriter<W>,
     file_path: &Path,
     archive_name: &str,
@@ -381,14 +382,47 @@ fn add_file_to_zip<W: Write + std::io::Seek>(
     
     let mut file = std::fs::File::open(file_path)
         .map_err(|e| format!("Failed to open {}: {}", file_path.display(), e))?;
-    std::io::copy(&mut file, zip)
-        .map_err(|e| format!("Failed to copy file to ZIP: {}", e))?;
+    
+    // Progress Loop
+    let total_size = file.metadata().map(|m| m.len()).unwrap_or(0);
+    let mut buffer = vec![0u8; 1024 * 1024]; // 1MB Buffer
+    let mut written = 0u64;
+    let mut last_percent = 0;
+    
+    let file_name = file_path.file_name().unwrap_or_default().to_string_lossy();
+    let _ = app.emit("forge-progress", serde_json::json!({ 
+        "percentage": 0, 
+        "message": format!("Mise en boîte: {}...", file_name) 
+    }));
+
+    loop {
+        let n = file.read(&mut buffer)
+            .map_err(|e| format!("Failed to read file: {}", e))?;
+        if n == 0 { break; }
+        
+        zip.write_all(&buffer[..n])
+            .map_err(|e| format!("Failed to write to ZIP: {}", e))?;
+            
+        written += n as u64;
+        
+        if total_size > 0 {
+            let percent = (written * 100) / total_size;
+            if percent > last_percent {
+                last_percent = percent;
+                let _ = app.emit("forge-progress", serde_json::json!({ 
+                    "percentage": percent, 
+                    "message": format!("Ajout de {}: {}%", file_name, percent) 
+                }));
+            }
+        }
+    }
     
     Ok(())
 }
 
 /// Recursively add a directory to ZIP archive
 fn add_directory_to_zip<W: Write + std::io::Seek>(
+    app: &tauri::AppHandle,
     zip: &mut zip::ZipWriter<W>,
     dir_path: &Path,
     prefix: &str,
@@ -400,9 +434,9 @@ fn add_directory_to_zip<W: Write + std::io::Seek>(
         let name = format!("{}/{}", prefix, entry.file_name().to_string_lossy());
         
         if path.is_dir() {
-            add_directory_to_zip(zip, &path, &name, options)?;
+            add_directory_to_zip(app, zip, &path, &name, options)?;
         } else {
-            add_file_to_zip(zip, &path, &name, options)?;
+            add_file_to_zip(app, zip, &path, &name, options)?;
         }
     }
     Ok(())
