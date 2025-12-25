@@ -32,7 +32,7 @@ impl EmulatorDownloader {
             
             // DuckStation
             ("duckstation", true) => Some(("https://github.com/stenzek/duckstation/releases/download/latest/duckstation-windows-x64.zip", "duckstation-windows.zip")),
-            ("duckstation", false) => Some(("https://github.com/stenzek/duckstation/releases/download/latest/duckstation-linux-x64.AppImage", "DuckStation.AppImage")),
+            ("duckstation", false) => Some(("https://github.com/stenzek/duckstation/releases/download/latest/DuckStation-x64.AppImage", "DuckStation.AppImage")),
 
             // Dolphin
             ("dolphin", true) => Some(("https://dl.dolphin-emu.org/releases/202309/dolphin-master-5.0-19870-x64.7z", "dolphin-x64.7z")),
