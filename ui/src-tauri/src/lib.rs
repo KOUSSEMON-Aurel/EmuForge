@@ -308,24 +308,47 @@ LogToConsole = false
             }
             
             // Create wrapper script
+            // FIX: Use bash dynamic path resolution instead of {{EXE_DIR}} placeholder
+            // {{EXE_DIR}} is not replaced inside the script content by the stub
             let wrapper_script = format!(r#"#!/bin/bash
+# Get directory where this script is located (no matter where it's called from)
+SCRIPT_DIR="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" && pwd )"
+
 BACKUP_DIR="/tmp/duckstation_backup_$$"
-LOCAL_CONFIG="{{{{EXE_DIR}}}}/.duckstation_local"
+LOCAL_CONFIG="$SCRIPT_DIR/.duckstation_local"
 GLOBAL_CONFIG="$HOME/.local/share/duckstation"
 
-# Backup existing config
+# Ensure local config exists to verify path
+if [ ! -d "$LOCAL_CONFIG" ]; then
+    echo "ERROR: Local config not found at $LOCAL_CONFIG"
+    exit 1
+fi
+
+# Backup existing global config
 if [ -d "$GLOBAL_CONFIG" ]; then
-    mv "$GLOBAL_CONFIG" "$BACKUP_DIR"
+    # Only backup if it's not already a symlink to our local config (prevent loop)
+    if [ ! -L "$GLOBAL_CONFIG" ]; then
+        mv "$GLOBAL_CONFIG" "$BACKUP_DIR"
+    else
+        # It's a symlink, just remove it
+        rm "$GLOBAL_CONFIG"
+    fi
 fi
 
 # Symlink our local config
 ln -s "$LOCAL_CONFIG" "$GLOBAL_CONFIG"
 
 # Launch DuckStation
-{} -fullscreen -- "{}"
+# We use the absolute path to emulator to be safe
+"{}" -fullscreen -- "{}"
 
 # Restore original config
-rm "$GLOBAL_CONFIG"
+# First remove our symlink
+if [ -L "$GLOBAL_CONFIG" ]; then
+    rm "$GLOBAL_CONFIG"
+fi
+
+# Restore backup if it exists
 if [ -d "$BACKUP_DIR" ]; then
     mv "$BACKUP_DIR" "$GLOBAL_CONFIG"
 fi
