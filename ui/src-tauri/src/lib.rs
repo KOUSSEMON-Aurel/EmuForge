@@ -85,7 +85,7 @@ async fn forge_executable(
     // NOTE: PCSX2 already has -fullscreen in its plugin args, so we skip it here
     if fullscreen {
         match driver_id.as_str() {
-            "ppsspp" | "duckstation" | "ryujinx" => {
+            "ppsspp" | "ryujinx" => {
                  config.args.push("--fullscreen".to_string());
             },
             "cemu" => {
