@@ -880,6 +880,19 @@ fn forge_portable_executable(
         }
     }
     
+    // DuckStation: Create .duckstation_home structure BEFORE handling BIOS
+    // This will be added to the ZIP and extracted next to the executable
+    if driver_id == "duckstation" {
+        let duckstation_home = output_dir.join(".duckstation_home");
+        let ds_data_dir = duckstation_home.join(".local/share/duckstation");
+        std::fs::create_dir_all(&ds_data_dir)
+            .map_err(|e| format!("Failed to create DuckStation data dir: {}", e))?;
+        
+        // Create empty bios directory (BIOS will be copied below)
+        std::fs::create_dir_all(ds_data_dir.join("bios"))
+            .map_err(|e| format!("Failed to create BIOS dir: {}", e))?;
+    }
+    
     // Add BIOS if present
     // Add BIOS if present
     // Strategy: Copy BIOS to the config folder on disk FIRST, so add_directory_to_zip includes it naturally.
