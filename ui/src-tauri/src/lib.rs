@@ -182,11 +182,6 @@ async fn forge_executable(
                          // but we can try replacing the whole line if we find the key
                          // For now, let's append our override at the end of [BIOS] section?
                          // Or better: just know that DuckStation reads the file.
-                         // Let's replace the common absolute paths we might see or just leave it if it's external?
-                         // User said they configured it "as I think".
-                         // If they used external BIOS, we copied it to local 'bios' folder.
-                         // So we MUST force look in 'bios' folder.
-                         
                          // Let's replace the line completely if possible.
                          // We'll proceed line by line to be safe.
                          let lines: Vec<&str> = adapted_settings.lines().collect();
