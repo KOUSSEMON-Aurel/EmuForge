@@ -86,9 +86,6 @@ fn check_portable_mode(exe_path: &PathBuf) -> Option<PortableConfig> {
 }
 
 /// Find subsequence in buffer
-fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack.windows(needle.len()).position(|window| window == needle)
-}
 
 /// Run in portable mode - extract and launch
 fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
