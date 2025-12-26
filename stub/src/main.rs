@@ -85,37 +85,13 @@ fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
 
 /// Run in portable mode - extract and launch
 fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
-    // NEW STRATEGY: Extract next to the executable for TRUE portability
-    // This allows the game + config folder to be moved together (USB drive, etc.)
+    // CLEAN STRATEGY: Always extract to cache in a game-specific folder
+    // This keeps everything organized in ~/.cache/emuforge/[GameName]/
     
-    let exe_dir = exe_path.parent()
-        .expect("Failed to get executable directory")
-        .to_path_buf();
-    
-    // Check if we can write next to the exe
-    let portable_dir = exe_dir.clone();
-    let marker_file = portable_dir.join(".emuforge_extracted");
-    
-    // Test if we can write here
-    let can_write_portable = {
-        let test_file = portable_dir.join(".emuforge_write_test");
-        fs::write(&test_file, "").is_ok()
-            .then(|| fs::remove_file(&test_file).is_ok())
-            .unwrap_or(false)
-    };
-    
-    let (target_dir, is_portable_location) = if can_write_portable {
-        eprintln!("📁 Mode portable : extraction à côté de l'exécutable");
-        (portable_dir, true)
-    } else {
-        eprintln!("⚠️  Impossible d'écrire à côté de l'exe (emplacement protégé)");
-        eprintln!("📁 Fallback : extraction dans le cache utilisateur");
-        let cache_base = dirs::cache_dir()
-            .unwrap_or_else(|| PathBuf::from("/tmp"))
-            .join("emuforge");
-        let cache_dir = cache_base.join(&config.game_name);
-        (cache_dir, false)
-    };
+    let cache_base = dirs::cache_dir()
+        .unwrap_or_else(|| PathBuf::from("/tmp"))
+        .join("emuforge");
+    let target_dir = cache_base.join(&config.game_name);
     
     let extraction_marker = target_dir.join(".emuforge_extracted");
     let needs_extraction = !extraction_marker.exists();
@@ -140,12 +116,12 @@ fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
     let config_path = target_dir.join(&config.config_dir);
     
     // Debug output
-    eprintln!("🔍 DEBUG: Extraction dir: {:?}", target_dir);
-    eprintln!("🔍 DEBUG: Portable location: {}", is_portable_location);
+    eprintln!("🔍 DEBUG: Cache dir: {:?}", target_dir);
     eprintln!("🔍 DEBUG: Emulator path: {:?}", emulator_path);
     eprintln!("🔍 DEBUG: ROM path: {:?}", rom_path);
     eprintln!("🔍 DEBUG: ROM exists: {}", rom_path.exists());
-    eprintln!("🔍 DEBUG: Config path: {:?}", config_path);
+        eprintln!("🎮 Préparation du jeu: {}...", config.game_name);
+        eprintln!("📁 Dossier de données: {:?}", target_dir);
     
     // Make emulator executable (Linux)
     #[cfg(unix)]
