@@ -144,6 +144,25 @@ async fn forge_executable(
 
     let forge = ExecutableForge::new(stub_crate_path, out_path);
 
+    // Generic Fullscreen Logic handled above...
+
+    // GLOBAL FIX: Inject minimal settings.ini to ~/.local/share/duckstation if missing
+    // This prevents the "First Run Wizard" for non-portable executables.
+    if driver_id == "duckstation" {
+        if let Some(data_dir) = dirs::data_local_dir() {
+            let ds_config_dir = data_dir.join("duckstation");
+            let ds_settings_path = ds_config_dir.join("settings.ini");
+            
+            if !ds_settings_path.exists() {
+                 println!("Injecting global DuckStation config to bypass Wizard: {:?}", ds_settings_path);
+                 if std::fs::create_dir_all(&ds_config_dir).is_ok() {
+                     let settings_content = "[Main]\nSettingsVersion=3\nStartFullscreen=true\n";
+                     let _ = std::fs::write(&ds_settings_path, settings_content);
+                 }
+            }
+        }
+    }
+
     match forge.forge(&game_name, &config) {
         Ok(path) => Ok(path.to_string_lossy().to_string()),
         Err(e) => Err(format!("Forge failed: {:?}", e)),
