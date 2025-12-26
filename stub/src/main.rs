@@ -218,6 +218,13 @@ fn run_launcher_mode() {
 
     let mut cmd = Command::new(&config.emulator_path);
     
+    // Debug output
+    eprintln!("🔍 LAUNCHER DEBUG: Config loaded:");
+    eprintln!("   Emulator: {:?}", config.emulator_path);
+    eprintln!("   ROM: {:?}", config.rom_path);
+    eprintln!("   Args: {:?}", config.args);
+    eprintln!("   Working dir: {:?}", config.working_dir);
+    
     // Standard convention: [options] [file]
     // Passing args before ROM is safer for most emulators (DuckStation, Dolphin, etc.)
     cmd.args(&config.args);
@@ -227,9 +234,22 @@ fn run_launcher_mode() {
         cmd.current_dir(dir);
     }
     
+    // Resolve EXE_DIR for portable paths
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+    let exe_dir_str = exe_dir.to_string_lossy();
+
     for (key, val) in config.env_vars {
-        cmd.env(key, val);
+        // Replace {{EXE_DIR}} with actual path
+        let val_resolved = val.replace("{{EXE_DIR}}", &exe_dir_str);
+        cmd.env(key, val_resolved);
     }
+
+    // Debug: Print exact command
+    eprintln!("🚀 LAUNCHER DEBUG: Executing command:");
+    eprintln!("   {:?} {:?} {:?}", config.emulator_path, config.args, config.rom_path);
 
     match cmd.status() {
         Ok(status) => {

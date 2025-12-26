@@ -142,25 +142,61 @@ async fn forge_executable(
 
     let out_path = PathBuf::from(output_dir);
 
-    let forge = ExecutableForge::new(stub_crate_path, out_path);
+    let forge = ExecutableForge::new(stub_crate_path, out_path.clone());
 
     // Generic Fullscreen Logic handled above...
 
-    // GLOBAL FIX: Inject minimal settings.ini to ~/.local/share/duckstation if missing
-    // This prevents the "First Run Wizard" for non-portable executables.
+    // ISOLATED CONFIG STRATEGY provided by user
+    // Instead of messing with global config, we create a local .duckstation folder
+    // and force XDG_CONFIG_HOME/XDG_DATA_HOME to point to it.
     if driver_id == "duckstation" {
-        if let Some(data_dir) = dirs::data_local_dir() {
-            let ds_config_dir = data_dir.join("duckstation");
-            let ds_settings_path = ds_config_dir.join("settings.ini");
+        // Define local config dir inside output
+        let local_conf_name = ".duckstation";
+        let local_conf_path = out_path.join(local_conf_name);
+        
+        std::fs::create_dir_all(&local_conf_path).map_err(|e| format!("Failed to create config dir: {}", e))?;
+        
+        // 1. Write the USER-PROVIDED robust settings.ini
+        let settings_content = r#"[Main]
+Language=en
+ConfirmPowerOff=false
+StartFullscreen=true
+
+[BIOS]
+SearchDirectory={{EXE_DIR}}/.duckstation/bios
+
+[Console]
+Region=Auto
+
+[GPU]
+Renderer=OpenGL
+
+[Audio]
+Backend=SDL
+
+[UI]
+ShowGameList=false
+ShowStartWizard=false
+"#;
+        std::fs::write(local_conf_path.join("settings.ini"), settings_content)
+            .map_err(|e| format!("Failed to write settings.ini: {}", e))?;
             
-            if !ds_settings_path.exists() {
-                 println!("Injecting global DuckStation config to bypass Wizard: {:?}", ds_settings_path);
-                 if std::fs::create_dir_all(&ds_config_dir).is_ok() {
-                     let settings_content = "[Main]\nSettingsVersion=3\nStartFullscreen=true\n";
-                     let _ = std::fs::write(&ds_settings_path, settings_content);
-                 }
+        // 2. Setup BIOS directory (if user provided one)
+        if let Some(bios_src) = &bios_path {
+            let bios_dest_dir = local_conf_path.join("bios");
+            std::fs::create_dir_all(&bios_dest_dir).map_err(|e| format!("Failed to create bios dir: {}", e))?;
+            
+            let bios_src_path = PathBuf::from(bios_src);
+            if let Some(name) = bios_src_path.file_name() {
+                std::fs::copy(&bios_src_path, bios_dest_dir.join(name))
+                     .map_err(|e| format!("Failed to copy BIOS: {}", e))?;
             }
         }
+
+        // 3. Inject Environment Variables using {{EXE_DIR}} placeholder
+        // The stub will replace {{EXE_DIR}} with the actual dir at runtime
+        config.env_vars.push(("XDG_CONFIG_HOME".to_string(), format!("{{{{EXE_DIR}}}}/{}", local_conf_name)));
+        config.env_vars.push(("XDG_DATA_HOME".to_string(), format!("{{{{EXE_DIR}}}}/{}", local_conf_name)));
     }
 
     match forge.forge(&game_name, &config) {
