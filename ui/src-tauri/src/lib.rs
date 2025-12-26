@@ -12,164 +12,10 @@ const PORTABLE_MARKER: &[u8] = b"EMUFORGE_PORTABLE_DATA_START";
 
 #[allow(dead_code)]
 struct AppState {
-
     output_dir: Mutex<PathBuf>,
 }
 
-#[tauri::command]
-async fn forge_executable(
-    app: tauri::AppHandle,
-    game_name: String,
-    emulator_path: String,
-    rom_path: String,
-    bios_path: Option<String>,
-    output_dir: String,
-    _plugin: String,
-    _target_os: String,
-    fullscreen: bool,
-    args: Vec<String>,
-    portable_mode: Option<bool>,
-) -> Result<String, String> {
-    use emuforge_core::plugin::manager::PluginManager;
-    use emuforge_core::forge::LaunchConfig;
-    
-    let rom_p = PathBuf::from(&rom_path);
-    let emu_p = PathBuf::from(&emulator_path);
-    
-    let manager = PluginManager::new();
-    
-    // Use configured_driver_for to start with a fresh plugin instance 
-    // that knows about the user-provided binary path.
-    let maybe_plugin = manager.configured_driver_for(&emu_p);
-    
-    // We determine config AND driver_id in one go to avoid ownership issues
-    let (mut config, driver_id) = if let Some(plugin) = &maybe_plugin {
-        let cfg = plugin.prepare_launch_config(&rom_p, Path::new(&output_dir))
-            .map_err(|e| format!("Plugin error: {}", e))?;
-        (cfg, plugin.id().to_string())
-    } else {
-        (LaunchConfig {
-            emulator_path: emu_p.clone(),
-            rom_path: rom_p.clone(),
-            bios_path: bios_path.as_ref().map(PathBuf::from),
-            args,
-            working_dir: None,
-            env_vars: vec![],
-        }, "generic".to_string())
-    };
-
-    // === BIOS HANDLING FOR PCSX2 ===
-    // PCSX2 requires BIOS files to be in a specific folder structure.
-    // The plugin creates output_dir/pcsx2_data/PCSX2/bios/, so we copy the user's BIOS there.
-    if driver_id == "pcsx2" {
-        if let Some(bios_src) = &bios_path {
-            let bios_src_path = PathBuf::from(bios_src);
-            if bios_src_path.exists() {
-                // BIOS must go in pcsx2_data/PCSX2/bios/ to match XDG_CONFIG_HOME structure
-                let bios_dest_dir = PathBuf::from(&output_dir).join("pcsx2_data").join("PCSX2").join("bios");
-                std::fs::create_dir_all(&bios_dest_dir)
-                    .map_err(|e| format!("Failed to create bios directory: {}", e))?;
-                
-                // Copy the BIOS file with its original name
-                let bios_filename = bios_src_path.file_name()
-                    .ok_or_else(|| "Invalid BIOS path".to_string())?;
-                let bios_dest = bios_dest_dir.join(bios_filename);
-                
-                std::fs::copy(&bios_src_path, &bios_dest)
-                    .map_err(|e| format!("Failed to copy BIOS file: {}", e))?;
-            }
-        }
-    }
-
-    // Apply generic full screen override if requested
-    // NOTE: PCSX2 already has -fullscreen in its plugin args, so we skip it here
-    if fullscreen {
-        match driver_id.as_str() {
-            "ppsspp" | "ryujinx" => {
-                 config.args.push("--fullscreen".to_string());
-            },
-            "cemu" => {
-                 config.args.push("-f".to_string());
-            },
-            "generic" => {
-                 config.args.push("--fullscreen".to_string());
-            },
-            _ => { /* PCSX2 and others already configured by plugin */ }
-        }
-    }
-
-    // Check if portable mode is requested
-    if portable_mode.unwrap_or(false) {
-        return forge_portable_executable(
-            app,
-            game_name,
-            emu_p,
-            rom_p,
-            bios_path.map(PathBuf::from),
-            PathBuf::from(&output_dir),
-            driver_id,
-        );
-    }
-
-
-    // Calculate stub path relative to the current working directory or binary location
-    // In dev mode, we assume we run from the project root or we find it in ../stub
-    // Note: In a real app we might want to bundle the stub binary as a resource.
-    // For this MVP, we look for the stub crate in known locations
-    
-    let possible_paths = vec![
-        "../../stub",
-        "../stub",
-        "stub" 
-    ];
-    
-    let mut stub_crate_path = PathBuf::new();
-    let mut found = false;
-    
-    for p in possible_paths {
-        if let Ok(path) = PathBuf::from(p).canonicalize() {
-            if path.join("Cargo.toml").exists() {
-                stub_crate_path = path;
-                found = true;
-                break;
-            }
-        }
-    }
-    
-    if !found {
-        return Err("Could not find stub crate directory".to_string());
-    }
-
-    let out_path = PathBuf::from(output_dir);
-
-    let forge = ExecutableForge::new(stub_crate_path, out_path.clone());
-
-    // Generic Fullscreen Logic handled above...
-
-    // DUCKSTATION RADICAL SOLUTION:
-   // DuckStation AppImage is STUBBORN and ignores XDG vars.
-    // We'll create a launch wrapper script that:
-    // 1. Backs up ~/.local/share/duckstation
-    // 2. Symlinks our local config there
-    // 3. Launches DuckStation
-    // 4. Restores original config
-    
-    if driver_id == "duckstation" {
-         // NEW STRATEGY: Directly create the .duckstation_home structure
-         // mirroring the Linux HOME layout.
-         // output/
-         //   .duckstation_home/
-         //     .local/share/duckstation/
-         //       settings.ini
-         //       bios/
-         
-        let fake_home = out_path.join(".duckstation_home");
-        let ds_data_dir = fake_home.join(".local/share/duckstation");
-        std::fs::create_dir_all(&ds_data_dir).ok();
-        
-        // USE THE VALIDATED TEMPLATE (Hardcoded for reliability as requested)
-        // Updated with user's verified config from Desktop backup
-         let settings_template = r#"[Main]
+const DUCKSTATION_SETTINGS: &str = r#"[Main]
 SettingsVersion = 3
 EmulationSpeed = 1
 FastForwardSpeed = 0
@@ -672,7 +518,162 @@ CheckAtStartup = false
 [GameList]
 RecursivePaths = {{EXE_DIR}}
 "#;
-        std::fs::write(ds_data_dir.join("settings.ini"), settings_template).ok();
+
+#[tauri::command]
+async fn forge_executable(
+    app: tauri::AppHandle,
+    game_name: String,
+    emulator_path: String,
+    rom_path: String,
+    bios_path: Option<String>,
+    output_dir: String,
+    _plugin: String,
+    _target_os: String,
+    fullscreen: bool,
+    args: Vec<String>,
+    portable_mode: Option<bool>,
+) -> Result<String, String> {
+    use emuforge_core::plugin::manager::PluginManager;
+    use emuforge_core::forge::LaunchConfig;
+    
+    let rom_p = PathBuf::from(&rom_path);
+    let emu_p = PathBuf::from(&emulator_path);
+    
+    let manager = PluginManager::new();
+    
+    // Use configured_driver_for to start with a fresh plugin instance 
+    // that knows about the user-provided binary path.
+    let maybe_plugin = manager.configured_driver_for(&emu_p);
+    
+    // We determine config AND driver_id in one go to avoid ownership issues
+    let (mut config, driver_id) = if let Some(plugin) = &maybe_plugin {
+        let cfg = plugin.prepare_launch_config(&rom_p, Path::new(&output_dir))
+            .map_err(|e| format!("Plugin error: {}", e))?;
+        (cfg, plugin.id().to_string())
+    } else {
+        (LaunchConfig {
+            emulator_path: emu_p.clone(),
+            rom_path: rom_p.clone(),
+            bios_path: bios_path.as_ref().map(PathBuf::from),
+            args,
+            working_dir: None,
+            env_vars: vec![],
+        }, "generic".to_string())
+    };
+
+    // === BIOS HANDLING FOR PCSX2 ===
+    // PCSX2 requires BIOS files to be in a specific folder structure.
+    // The plugin creates output_dir/pcsx2_data/PCSX2/bios/, so we copy the user's BIOS there.
+    if driver_id == "pcsx2" {
+        if let Some(bios_src) = &bios_path {
+            let bios_src_path = PathBuf::from(bios_src);
+            if bios_src_path.exists() {
+                // BIOS must go in pcsx2_data/PCSX2/bios/ to match XDG_CONFIG_HOME structure
+                let bios_dest_dir = PathBuf::from(&output_dir).join("pcsx2_data").join("PCSX2").join("bios");
+                std::fs::create_dir_all(&bios_dest_dir)
+                    .map_err(|e| format!("Failed to create bios directory: {}", e))?;
+                
+                // Copy the BIOS file with its original name
+                let bios_filename = bios_src_path.file_name()
+                    .ok_or_else(|| "Invalid BIOS path".to_string())?;
+                let bios_dest = bios_dest_dir.join(bios_filename);
+                
+                std::fs::copy(&bios_src_path, &bios_dest)
+                    .map_err(|e| format!("Failed to copy BIOS file: {}", e))?;
+            }
+        }
+    }
+
+    // Apply generic full screen override if requested
+    // NOTE: PCSX2 already has -fullscreen in its plugin args, so we skip it here
+    if fullscreen {
+        match driver_id.as_str() {
+            "ppsspp" | "ryujinx" => {
+                 config.args.push("--fullscreen".to_string());
+            },
+            "cemu" => {
+                 config.args.push("-f".to_string());
+            },
+            "generic" => {
+                 config.args.push("--fullscreen".to_string());
+            },
+            _ => { /* PCSX2 and others already configured by plugin */ }
+        }
+    }
+
+    // Check if portable mode is requested
+    if portable_mode.unwrap_or(false) {
+        return forge_portable_executable(
+            app,
+            game_name,
+            emu_p,
+            rom_p,
+            bios_path.map(PathBuf::from),
+            PathBuf::from(&output_dir),
+            driver_id,
+            fullscreen,
+        );
+    }
+
+
+    // Calculate stub path relative to the current working directory or binary location
+    // In dev mode, we assume we run from the project root or we find it in ../stub
+    // Note: In a real app we might want to bundle the stub binary as a resource.
+    // For this MVP, we look for the stub crate in known locations
+    
+    let possible_paths = vec![
+        "../../stub",
+        "../stub",
+        "stub" 
+    ];
+    
+    let mut stub_crate_path = PathBuf::new();
+    let mut found = false;
+    
+    for p in possible_paths {
+        if let Ok(path) = PathBuf::from(p).canonicalize() {
+            if path.join("Cargo.toml").exists() {
+                stub_crate_path = path;
+                found = true;
+                break;
+            }
+        }
+    }
+    
+    if !found {
+        return Err("Could not find stub crate directory".to_string());
+    }
+
+    let out_path = PathBuf::from(output_dir);
+
+    let forge = ExecutableForge::new(stub_crate_path, out_path.clone());
+
+    // Generic Fullscreen Logic handled above...
+
+    // DUCKSTATION RADICAL SOLUTION:
+   // DuckStation AppImage is STUBBORN and ignores XDG vars.
+    // We'll create a launch wrapper script that:
+    // 1. Backs up ~/.local/share/duckstation
+    // 2. Symlinks our local config there
+    // 3. Launches DuckStation
+    // 4. Restores original config
+    
+    if driver_id == "duckstation" {
+         // NEW STRATEGY: Directly create the .duckstation_home structure
+         // mirroring the Linux HOME layout.
+         // output/
+         //   .duckstation_home/
+         //     .local/share/duckstation/
+         //       settings.ini
+         //       bios/
+         
+        let fake_home = out_path.join(".duckstation_home");
+        let ds_data_dir = fake_home.join(".local/share/duckstation");
+        std::fs::create_dir_all(&ds_data_dir).ok();
+        
+        // USE THE VALIDATED TEMPLATE (Hardcoded for reliability as requested)
+        // Updated with user's verified config from Desktop backup
+        std::fs::write(ds_data_dir.join("settings.ini"), DUCKSTATION_SETTINGS).ok();
         
         // Copy BIOS to .duckstation_home/.local/share/duckstation/bios
         if let Some(bios_p) = bios_path {
@@ -762,6 +763,7 @@ fn forge_portable_executable(
     bios_path: Option<PathBuf>,
     output_dir: PathBuf,
     driver_id: String,
+    fullscreen: bool,
 ) -> Result<String, String> {
     use std::fs::File;
     use zip::write::SimpleFileOptions;
@@ -930,26 +932,8 @@ fn forge_portable_executable(
         let duckstation_home = output_dir.join(".duckstation_home");
         let ds_data_dir = duckstation_home.join(".local/share/duckstation");
         
-        // Copy the same settings template used in non-portable mode
-        // We read it from the non-portable code section around line 170
-        let settings_content = std::fs::read_to_string(ds_data_dir.join("settings.ini"))
-            .unwrap_or_else(|_| {
-                // Fallback: use the verified template if file doesn't exist
-                // This shouldn't happen but provides safety
-                r#"[Main]
-SettingsVersion = 3
-StartFullscreen = true
-SetupWizardIncomplete = false
-
-[BIOS]
-SearchDirectory = bios
-
-[UI]
-ShowStartWizard = false
-"#.to_string()
-            });
-        
-        std::fs::write(ds_data_dir.join("settings.ini"), settings_content)
+        // Ensure settings.ini is written with the complete template
+        std::fs::write(ds_data_dir.join("settings.ini"), DUCKSTATION_SETTINGS)
             .map_err(|e| format!("Failed to write settings.ini: {}", e))?;
         
         // Add entire .duckstation_home structure to ZIP
@@ -965,7 +949,8 @@ ShowStartWizard = false
         "game_name": sanitize_filename(&game_name),
         "emulator_filename": emu_filename,
         "rom_filename": rom_filename,
-        "config_dir": config_dir_name
+        "config_dir": config_dir_name,
+        "fullscreen": fullscreen
     });
     let config_json = serde_json::to_vec(&portable_config)
         .map_err(|e| format!("Failed to serialize config: {}", e))?;

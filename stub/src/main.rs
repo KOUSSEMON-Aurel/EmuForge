@@ -12,6 +12,7 @@ use std::process::Command;
 const PORTABLE_MARKER: &[u8] = b"EMUFORGE_PORTABLE_DATA_START";
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 struct LaunchConfig {
     emulator_path: PathBuf,
     rom_path: PathBuf,
@@ -28,6 +29,7 @@ struct PortableConfig {
     emulator_filename: String,
     rom_filename: String,
     config_dir: String,
+    fullscreen: bool,
 }
 
 fn main() {
@@ -145,7 +147,9 @@ fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
     cmd.env("QT_QPA_PLATFORM", "xcb");
     
     // DuckStation syntax: [flags] -- <file>
-    cmd.arg("-fullscreen");
+    if config.fullscreen {
+        cmd.arg("-fullscreen");
+    }
     cmd.arg("--");
     cmd.arg(&rom_path);
     
