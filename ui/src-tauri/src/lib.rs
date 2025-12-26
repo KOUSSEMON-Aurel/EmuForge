@@ -156,7 +156,6 @@ async fn forge_executable(
         
         let xdg_base_name = ".duckstation";
         let xdg_base_path = out_path.join(xdg_base_name);
-        let start_confirm = "true"; // StartFullscreen=true
 
         // We must write settings.ini into the 'duckstation' subdir
         let app_conf_path = xdg_base_path.join("duckstation");
