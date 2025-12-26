@@ -358,7 +358,22 @@ LogToConsole = false
 SCRIPT_DIR="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" && pwd )"
 
 # Paths
-REAL_EMULATOR="{}"
+# Original Emulator Path (Absolute path from build time)
+BUILD_TIME_PATH="{}"
+
+# Smart Detection:
+# 1. Check if emulator exists locally (Portable Mode / Bundled)
+EMU_FILENAME=$(basename "$BUILD_TIME_PATH")
+LOCAL_EMU="$SCRIPT_DIR/$EMU_FILENAME"
+
+if [ -f "$LOCAL_EMU" ]; then
+    REAL_EMULATOR="$LOCAL_EMU"
+    echo "Using Local Emulator: $REAL_EMULATOR"
+else
+    # 2. Fallback to system path (Non-Portable / Launcher Mode)
+    REAL_EMULATOR="$BUILD_TIME_PATH"
+    echo "Using System Emulator: $REAL_EMULATOR"
+fi
 FAKE_HOME="$SCRIPT_DIR/.duckstation_home"
 DS_DATA_DIR="$FAKE_HOME/.local/share/duckstation"
 
