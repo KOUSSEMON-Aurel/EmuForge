@@ -155,77 +155,21 @@ async fn forge_executable(
     // 4. Restores original config
     
     if driver_id == "duckstation" {
-        if let Some(data_dir) = dirs::data_local_dir() {
-            let global_ds_dir = data_dir.join("duckstation");
-            let global_ds_settings = global_ds_dir.join("settings.ini");
-            
-            // Copy user's global config as template if it exists
-            let local_ds_base = out_path.join(".duckstation_local");
-            std::fs::create_dir_all(&local_ds_base).ok();
-            
-            if global_ds_settings.exists() {
-                // Copy entire global config and adapt BIOS path
-                if let Ok(settings_content) = std::fs::read_to_string(&global_ds_settings) {
-                    // Adapt BIOS path to point to local copy (WHICH IS SYMLINKED TO STANDARD LOCATION)
-                    // DuckStation sees our .duckstation_local folder AS ~/.local/share/duckstation
-                    // So we just need to say "bios" (relative) or the standard absolute path.
-                    // "bios" is safest as it works regardless of where the symlink points.
-                    let mut adapted_settings = settings_content.replace(
-                        "SearchDirectory = bios",
-                        "SearchDirectory = bios" // Keep it relative/default!
-                    );
-                    
-                    // If the user had an absolute path, force it to relative 'bios'
-                    // This handles cases where they had /media/... or other paths
-                    if adapted_settings.contains("SearchDirectory = /") {
-                         // Simple regex-like replacement not easy in Rust std without crate, 
-                         // but we can try replacing the whole line if we find the key
-                         // For now, let's append our override at the end of [BIOS] section?
-                         // Or better: just know that DuckStation reads the file.
-                         // Let's replace the line completely if possible.
-                         // We'll proceed line by line to be safe.
-                         let lines: Vec<&str> = adapted_settings.lines().collect();
-                         let mut new_lines = Vec::new();
-                         let mut bios_section = false;
-                         
-                         for line in lines {
-                             if line.trim() == "[BIOS]" {
-                                 bios_section = true;
-                                 new_lines.push(line.to_string());
-                                 continue;
-                             }
-                             if bios_section && line.starts_with("[") {
-                                 bios_section = false;
-                             }
-                             
-                             if bios_section && line.trim().starts_with("SearchDirectory") {
-                                 new_lines.push("SearchDirectory = bios".to_string());
-                             } else {
-                                 new_lines.push(line.to_string());
-                             }
-                         }
-                         adapted_settings = new_lines.join("\n");
-                    }
-                    
-                    // Ensure StartFullscreen is enabled (add to [Main] if missing)
-                    if !adapted_settings.contains("StartFullscreen") {
-                        adapted_settings = adapted_settings.replace(
-                            "[Main]",
-                            "[Main]\nStartFullscreen = true"
-                        );
-                    } else {
-                        adapted_settings = adapted_settings.replace(
-                            "StartFullscreen = false",
-                            "StartFullscreen = true"
-                        );
-                    }
-                    
-                    std::fs::write(local_ds_base.join("settings.ini"), adapted_settings).ok();
-                }
-            } else {
-                // Fallback: Use USER PROVIDED COMPLETE TEMPLATE
-                // Verified working config with SDL mappings and SetupWizardIncomplete flag
-                let settings_template = r#"[Main]
+         // NEW STRATEGY: Directly create the .duckstation_home structure
+         // mirroring the Linux HOME layout.
+         // output/
+         //   .duckstation_home/
+         //     .local/share/duckstation/
+         //       settings.ini
+         //       bios/
+         
+        let fake_home = out_path.join(".duckstation_home");
+        let ds_data_dir = fake_home.join(".local/share/duckstation");
+        std::fs::create_dir_all(&ds_data_dir).ok();
+        
+        // USE THE VALIDATED TEMPLATE (Hardcoded for reliability as requested)
+        // Ensure SearchDirectory = bios (relative to settings.ini)
+         let settings_template = r#"[Main]
 SettingsVersion = 3
 EmulationSpeed = 1
 FastForwardSpeed = 0
@@ -407,27 +351,25 @@ SetupWizardIncomplete = false
 [GameList]
 RecursivePaths = {{EXE_DIR}}
 "#;
-                std::fs::write(local_ds_base.join("settings.ini"), settings_template).ok();
+        std::fs::write(ds_data_dir.join("settings.ini"), settings_template).ok();
+        
+        // Copy BIOS to .duckstation_home/.local/share/duckstation/bios
+        if let Some(bios_p) = bios_path {
+            let bios_dest_dir = ds_data_dir.join("bios");
+            std::fs::create_dir_all(&bios_dest_dir).ok();
+            
+            // Copy the file
+            if let Some(fname) = Path::new(&bios_p).file_name() {
+                 std::fs::copy(&bios_p, bios_dest_dir.join(fname)).ok();
             }
-            
-            // Copy BIOS
-            if let Some(bios_src) = &bios_path {
-                let bios_dest_dir = local_ds_base.join("bios");
-                std::fs::create_dir_all(&bios_dest_dir).ok();
-                
-                let bios_src_path = PathBuf::from(bios_src);
-                if let Some(name) = bios_src_path.file_name() {
-                    std::fs::copy(&bios_src_path, bios_dest_dir.join(name)).ok();
-                }
-            }
-            
-            // DUCKSTATION "EXPORT HOME" STRATEGY:
-            // The standard Linux way to sandbox an app.
-            // We simply change the HOME environment variable.
-            // DuckStation will write to $NEW_HOME/.local/share/duckstation.
-            
-            // Create wrapper script
-            let wrapper_script = format!(r#"#!/bin/bash
+        }
+
+        
+        // DUCKSTATION "EXPORT HOME" STRATEGY (SIMPLIFIED):
+        // The structure is already there. We just export HOME.
+        
+        // Create wrapper script
+        let wrapper_script = format!(r#"#!/bin/bash
 # Get directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" && pwd )"
 
@@ -447,25 +389,8 @@ else
     REAL_EMULATOR="$BUILD_TIME_PATH"
 fi
 
-# Fake Home
+# Set Persistant Fake Home
 FAKE_HOME="$SCRIPT_DIR/.duckstation_home"
-DS_DATA_DIR="$FAKE_HOME/.local/share/duckstation"
-
-# Prepare Fake Home Structure
-mkdir -p "$DS_DATA_DIR"
-
-# Source Sources
-LOCAL_SOURCE_DIR="$SCRIPT_DIR/.duckstation_local"
-
-# 1. Inject Settings
-if [ -f "$LOCAL_SOURCE_DIR/settings.ini" ]; then
-    cp "$LOCAL_SOURCE_DIR/settings.ini" "$DS_DATA_DIR/settings.ini"
-fi
-
-# 2. Inject BIOS
-if [ -d "$LOCAL_SOURCE_DIR/bios" ]; then
-    cp -r "$LOCAL_SOURCE_DIR/bios" "$DS_DATA_DIR/bios"
-fi
 
 # 3. Launch with Modified HOME
 # This isolates DuckStation completely.
@@ -475,30 +400,29 @@ export QT_QPA_PLATFORM=xcb
 # Launch!
 "$REAL_EMULATOR" -fullscreen -- "{}"
 "#, config.emulator_path.display(), config.rom_path.display());
-            
-            // Use absolute path for wrapper
-            let wrapper_path = out_path.join(&format!("{}_duckstation_wrapper.sh", game_name));
-            std::fs::write(&wrapper_path, wrapper_script).ok();
-            
-            // Make wrapper executable
-            #[cfg(unix)]
-            {
-                use std::os::unix::fs::PermissionsExt;
-                if let Ok(meta) = std::fs::metadata(&wrapper_path) {
-                    let mut perms = meta.permissions();
-                    perms.set_mode(0o755);
-                    std::fs::set_permissions(&wrapper_path, perms).ok();
-                }
+        
+        // Use absolute path for wrapper
+        let wrapper_path = out_path.join(&format!("{}_duckstation_wrapper.sh", game_name));
+        std::fs::write(&wrapper_path, wrapper_script).ok();
+        
+        // Make wrapper executable
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            if let Ok(meta) = std::fs::metadata(&wrapper_path) {
+                let mut perms = meta.permissions();
+                perms.set_mode(0o755);
+                std::fs::set_permissions(&wrapper_path, perms).ok();
             }
-            
-            // Modify config to use wrapper
-            let wrapper_path_absolute = wrapper_path.canonicalize()
-                .unwrap_or_else(|_| out_path.join(&wrapper_path)); // Best effort if not created yet
-            
-            config.emulator_path = wrapper_path_absolute;
-            config.args.clear();
-            config.rom_path = PathBuf::from(""); 
         }
+        
+        // Modify config to use wrapper
+        let wrapper_path_absolute = wrapper_path.canonicalize()
+            .unwrap_or_else(|_| out_path.join(&wrapper_path)); // Best effort if not created yet
+        
+        config.emulator_path = wrapper_path_absolute;
+        config.args.clear();
+        config.rom_path = PathBuf::from(""); 
     }
 
 
