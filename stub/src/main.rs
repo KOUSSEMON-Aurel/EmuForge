@@ -85,28 +85,31 @@ fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
 
 /// Run in portable mode - extract and launch
 fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
-    // CLEAN STRATEGY: Always extract to cache in a game-specific folder
-    // This keeps everything organized in ~/.cache/emuforge/[GameName]/
-    
+    // Determine cache directory
     let cache_base = dirs::cache_dir()
         .unwrap_or_else(|| PathBuf::from("/tmp"))
         .join("emuforge");
     let target_dir = cache_base.join(&config.game_name);
     
-    let extraction_marker = target_dir.join(".emuforge_extracted");
-    let needs_extraction = !extraction_marker.exists();
+    // Check if already extracted
+    let marker_file = target_dir.join(".emuforge_extracted");
+    let needs_extraction = !marker_file.exists();
     
     if needs_extraction {
-        eprintln!("🎮 Préparation du jeu (première exécution)...");
+        eprintln!("🎮 Préparation du jeu: {}...", config.game_name);
+        eprintln!("📁 Dossier de données: {:?}", target_dir);
         
-        // Extract the embedded ZIP archive
+        // Create cache directory
+        fs::create_dir_all(&target_dir).expect("Failed to create cache directory");
+        
+        // Extract the embedded zip archive
         if let Err(e) = extract_embedded_archive(&exe_path, &target_dir) {
             eprintln!("❌ Erreur d'extraction: {}", e);
             std::process::exit(1);
         }
         
         // Create marker file
-        let _ = File::create(&extraction_marker);
+        let _ = File::create(&marker_file);
         eprintln!("✅ Extraction terminée !");
     }
     
@@ -120,8 +123,7 @@ fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
     eprintln!("🔍 DEBUG: Emulator path: {:?}", emulator_path);
     eprintln!("🔍 DEBUG: ROM path: {:?}", rom_path);
     eprintln!("🔍 DEBUG: ROM exists: {}", rom_path.exists());
-        eprintln!("🎮 Préparation du jeu: {}...", config.game_name);
-        eprintln!("📁 Dossier de données: {:?}", target_dir);
+    eprintln!("🔍 DEBUG: Config path: {:?}", config_path);
     
     // Make emulator executable (Linux)
     #[cfg(unix)]
@@ -136,135 +138,86 @@ fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
     
     // Launch the emulator
     let mut cmd = Command::new(&emulator_path);
+    
+    // CRITICAL: Set HOME to the config directory to isolate the emulator
+    // This replicates the logic in our wrapper script and fixes the DuckStation error.
+    cmd.env("HOME", &config_path);
+    cmd.env("QT_QPA_PLATFORM", "xcb");
+    
     // DuckStation syntax: [flags] -- <file>
     cmd.arg("-fullscreen");
     cmd.arg("--");
     cmd.arg(&rom_path);
-    cmd.env("XDG_CONFIG_HOME", &config_path);
     
-    // Debug: Print exact command
-    eprintln!("🚀 DEBUG: Launching command:");
-    eprintln!("   {:?} -fullscreen -- {:?}", emulator_path, rom_path);
-    
-    match cmd.status() {
-        Ok(status) => {
-            if !status.success() {
-                eprintln!("Emulator exited with status: {:?}", status.code());
-                std::process::exit(status.code().unwrap_or(1));
-            }
-        }
-        Err(e) => {
-            eprintln!("Failed to launch emulator: {}", e);
-            eprintln!("Path: {:?}", emulator_path);
-            std::process::exit(1);
-        }
-    }
+    let mut child = cmd.spawn().expect("Failed to launch emulator");
+    let _ = child.wait();
 }
 
-/// Extract the embedded ZIP archive to cache directory
-fn extract_embedded_archive(exe_path: &PathBuf, cache_dir: &PathBuf) -> io::Result<()> {
-    let file = File::open(exe_path)?;
-    let mut reader = BufReader::new(file);
-    
-    // Read entire file
+/// Extract the embedded ZIP archive from the executable
+fn extract_embedded_archive(exe_path: &PathBuf, target_dir: &PathBuf) -> io::Result<()> {
+    let mut file = File::open(exe_path)?;
     let mut buffer = Vec::new();
-    reader.read_to_end(&mut buffer)?;
+    file.read_to_end(&mut buffer)?;
     
     // Find the marker
-    let marker_pos = find_subsequence(&buffer, PORTABLE_MARKER)
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "Marker not found"))?;
-    
-    // Skip marker + config length + config data to find ZIP start
-    let config_start = marker_pos + PORTABLE_MARKER.len();
-    let config_len = u32::from_le_bytes([
-        buffer[config_start],
-        buffer[config_start + 1],
-        buffer[config_start + 2],
-        buffer[config_start + 3],
-    ]) as usize;
-    
-    let zip_start = config_start + 4 + config_len;
-    let zip_data = &buffer[zip_start..];
-    
-    // Create cache directory
-    fs::create_dir_all(cache_dir)?;
-    
-    // Extract ZIP
-    let cursor = io::Cursor::new(zip_data);
-    let mut archive = zip::ZipArchive::new(cursor)?;
-    
-    for i in 0..archive.len() {
-        let mut file = archive.by_index(i)?;
-        let outpath = cache_dir.join(file.mangled_name());
+    if let Some(pos) = find_subsequence(&buffer, PORTABLE_MARKER) {
+        let config_start = pos + PORTABLE_MARKER.len();
         
-        if file.is_dir() {
-            fs::create_dir_all(&outpath)?;
-        } else {
-            if let Some(parent) = outpath.parent() {
-                fs::create_dir_all(parent)?;
+        // Read config length (4 bytes)
+        let config_len = u32::from_le_bytes([
+            buffer[config_start],
+            buffer[config_start + 1],
+            buffer[config_start + 2],
+            buffer[config_start + 3],
+        ]) as usize;
+        
+        let zip_start = config_start + 4 + config_len;
+        if buffer.len() > zip_start {
+            let zip_data = &buffer[zip_start..];
+            
+            // Write ZIP to temporary file to use ZipArchive
+            let zip_temp_path = target_dir.join("temp_data.zip");
+            fs::write(&zip_temp_path, zip_data)?;
+            
+            // Extract ZIP
+            let zip_file = File::open(&zip_temp_path)?;
+            let mut archive = zip::ZipArchive::new(zip_file)?;
+            
+            for i in 0..archive.len() {
+                let mut out_file = archive.by_index(i)?;
+                let outpath = match out_file.enclosed_name() {
+                    Some(path) => target_dir.join(path),
+                    None => continue,
+                };
+                
+                if out_file.name().ends_with('/') {
+                    fs::create_dir_all(&outpath)?;
+                } else {
+                    if let Some(p) = outpath.parent() {
+                        if !p.exists() {
+                            fs::create_dir_all(&p)?;
+                        }
+                    }
+                    let mut outfile = File::create(&outpath)?;
+                    io::copy(&mut out_file, &mut outfile)?;
+                }
             }
-            let mut outfile = File::create(&outpath)?;
-            io::copy(&mut file, &mut outfile)?;
+            
+            // Remove temporary ZIP
+            let _ = fs::remove_file(&zip_temp_path);
+            Ok(())
+        } else {
+            Err(io::Error::new(io::ErrorKind::NotFound, "ZIP data not found"))
         }
+    } else {
+        Err(io::Error::new(io::ErrorKind::NotFound, "Marker not found"))
     }
-    
-    Ok(())
 }
 
-/// Run in launcher mode (original behavior)
+/// Run in launcher mode - use local config
 fn run_launcher_mode() {
-    // Config injected at compile time via env var EMUFORGE_CONFIG_PATH
-    let config_json = include_str!(env!("EMUFORGE_CONFIG_PATH"));
-    let config: LaunchConfig = serde_json::from_str(config_json)
-        .expect("Failed to parse launch config");
-
-    let mut cmd = Command::new(&config.emulator_path);
-    
-    // Debug output
-    eprintln!("🔍 LAUNCHER DEBUG: Config loaded:");
-    eprintln!("   Emulator: {:?}", config.emulator_path);
-    eprintln!("   ROM: {:?}", config.rom_path);
-    eprintln!("   Args: {:?}", config.args);
-    eprintln!("   Working dir: {:?}", config.working_dir);
-    
-    // Standard convention: [options] [file]
-    // Passing args before ROM is safer for most emulators (DuckStation, Dolphin, etc.)
-    cmd.args(&config.args);
-    cmd.arg(&config.rom_path);
-    
-    if let Some(dir) = config.working_dir {
-        cmd.current_dir(dir);
-    }
-    
-    // Resolve EXE_DIR for portable paths
-    let exe_dir = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
-        .unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
-    let exe_dir_str = exe_dir.to_string_lossy();
-
-    for (key, val) in config.env_vars {
-        // Replace {{EXE_DIR}} with actual path
-        let val_resolved = val.replace("{{EXE_DIR}}", &exe_dir_str);
-        eprintln!("🔍 ENV VAR: {} = {}", key, val_resolved);
-        cmd.env(key, val_resolved);
-    }
-
-    // Debug: Print exact command
-    eprintln!("🚀 LAUNCHER DEBUG: Executing command:");
-    eprintln!("   {:?} {:?} {:?}", config.emulator_path, config.args, config.rom_path);
-
-    match cmd.status() {
-        Ok(status) => {
-             if !status.success() {
-                 eprintln!("Emulator exited with non-zero status: {:?}", status.code());
-                 std::process::exit(status.code().unwrap_or(1));
-             }
-        }
-        Err(e) => {
-            eprintln!("Failed to launch emulator: {}", e);
-            eprintln!("Path: {:?}", config.emulator_path);
-            std::process::exit(1);
-        }
-    }
+    // Current behavior for non-portable mode
+    // (Actual implementation depends on how you want the stub to behave as a standalone)
+    // For now, it might just be the launcher itself or a placeholder.
+    eprintln!("EmuForge Stub: Launcher mode not implemented yet.");
 }

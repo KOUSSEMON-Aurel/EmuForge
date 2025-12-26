@@ -959,11 +959,13 @@ ShowStartWizard = false
     zip.finish().map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
     
     // Step 3: Create the portable config JSON
+    let config_dir_name = if driver_id == "duckstation" { ".duckstation_home" } else { "pcsx2_data" };
+    
     let portable_config = serde_json::json!({
         "game_name": sanitize_filename(&game_name),
         "emulator_filename": emu_filename,
         "rom_filename": rom_filename,
-        "config_dir": "pcsx2_data"
+        "config_dir": config_dir_name
     });
     let config_json = serde_json::to_vec(&portable_config)
         .map_err(|e| format!("Failed to serialize config: {}", e))?;
