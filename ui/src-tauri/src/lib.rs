@@ -347,53 +347,50 @@ LogToConsole = false
                 }
             }
             
+            // DUCKSTATION WRAPPER REFINED:
+            // Instead of swapping the whole folder (risky, symlink timing issues),
+            // We ONLY swap the settings.ini file.
+            // This preserves the user's existing data folder structure while forcing our config.
+            
             // Create wrapper script
-            // FIX: Use bash dynamic path resolution instead of {{EXE_DIR}} placeholder
-            // {{EXE_DIR}} is not replaced inside the script content by the stub
             let wrapper_script = format!(r#"#!/bin/bash
-# Get directory where this script is located (no matter where it's called from)
+# Get directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" && pwd )"
 
-BACKUP_DIR="/tmp/duckstation_backup_$$"
-LOCAL_CONFIG="$SCRIPT_DIR/.duckstation_local"
-GLOBAL_CONFIG="$HOME/.local/share/duckstation"
+# Paths
+GLOBAL_CONF_DIR="$HOME/.local/share/duckstation"
+GLOBAL_SETTINGS="$GLOBAL_CONF_DIR/settings.ini"
+BACKUP_SETTINGS="/tmp/duckstation_settings_backup_$$"
+LOCAL_SETTINGS="$SCRIPT_DIR/.duckstation_local/settings.ini"
 
-# Ensure local config exists to verify path
-if [ ! -d "$LOCAL_CONFIG" ]; then
-    echo "ERROR: Local config not found at $LOCAL_CONFIG"
-    exit 1
+# Ensure global config dir exists
+mkdir -p "$GLOBAL_CONF_DIR"
+
+# Backup existing settings.ini if it exists
+if [ -f "$GLOBAL_SETTINGS" ]; then
+    cp "$GLOBAL_SETTINGS" "$BACKUP_SETTINGS"
 fi
 
-# Backup existing global config
-if [ -d "$GLOBAL_CONFIG" ]; then
-    # Only backup if it's not already a symlink to our local config (prevent loop)
-    if [ ! -L "$GLOBAL_CONFIG" ]; then
-        mv "$GLOBAL_CONFIG" "$BACKUP_DIR"
-    else
-        # It's a symlink, just remove it
-        rm "$GLOBAL_CONFIG"
-    fi
-fi
-
-# Symlink our local config
-ln -s "$LOCAL_CONFIG" "$GLOBAL_CONFIG"
+# Inject our local settings
+# We need to update the BIOS path in local settings to be ABSOLUTE before copying
+# because DuckStation will read it from ~/.local/... but the bios is in SCRIPT_DIR
+sed "s|SearchDirectory = bios|SearchDirectory = $SCRIPT_DIR/.duckstation_local/bios|g" "$LOCAL_SETTINGS" > "$GLOBAL_SETTINGS"
 
 # Launch DuckStation
-# We use the absolute path to emulator to be safe
+# Force X11 to avoid Wayland composition issues with Wizard logic
+export QT_QPA_PLATFORM=xcb
 "{}" -fullscreen -- "{}"
 
-# Restore original config
-# First remove our symlink
-if [ -L "$GLOBAL_CONFIG" ]; then
-    rm "$GLOBAL_CONFIG"
-fi
-
-# Restore backup if it exists
-if [ -d "$BACKUP_DIR" ]; then
-    mv "$BACKUP_DIR" "$GLOBAL_CONFIG"
+# Restore original settings
+if [ -f "$BACKUP_SETTINGS" ]; then
+    mv "$BACKUP_SETTINGS" "$GLOBAL_SETTINGS"
+else
+    # If no backup existed, remove the injected file to clean up
+    rm "$GLOBAL_SETTINGS"
 fi
 "#, config.emulator_path.display(), config.rom_path.display());
             
+            // Use absolute path for wrapper
             let wrapper_path = out_path.join(&format!("{}_duckstation_wrapper.sh", game_name));
             std::fs::write(&wrapper_path, wrapper_script).ok();
             
@@ -408,19 +405,13 @@ fi
                 }
             }
             
-            // Modify config to use wrapper instead of direct emulator
-            // CRITICAL: Must use absolute path for the wrapper
+            // Modify config to use wrapper
             let wrapper_path_absolute = wrapper_path.canonicalize()
-                .unwrap_or_else(|_| {
-                    // Fallback: construct absolute path manually
-                    std::env::current_dir()
-                        .unwrap_or_else(|_| PathBuf::from("."))
-                        .join(&wrapper_path)
-                });
+                .unwrap_or_else(|_| out_path.join(&wrapper_path)); // Best effort if not created yet
             
             config.emulator_path = wrapper_path_absolute;
-            config.args.clear(); // Wrapper handles args
-            config.rom_path = PathBuf::from(""); // Wrapper handles ROM
+            config.args.clear();
+            config.rom_path = PathBuf::from(""); 
         }
     }
 
