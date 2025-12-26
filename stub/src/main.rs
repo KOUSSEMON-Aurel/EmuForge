@@ -244,6 +244,7 @@ fn run_launcher_mode() {
     for (key, val) in config.env_vars {
         // Replace {{EXE_DIR}} with actual path
         let val_resolved = val.replace("{{EXE_DIR}}", &exe_dir_str);
+        eprintln!("🔍 ENV VAR: {} = {}", key, val_resolved);
         cmd.env(key, val_resolved);
     }
 
