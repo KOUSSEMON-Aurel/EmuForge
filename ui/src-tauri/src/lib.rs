@@ -151,10 +151,17 @@ async fn forge_executable(
     // and force XDG_CONFIG_HOME/XDG_DATA_HOME to point to it.
     if driver_id == "duckstation" {
         // Define local config dir inside output
-        let local_conf_name = ".duckstation";
-        let local_conf_path = out_path.join(local_conf_name);
+        // XDG_CONFIG_HOME will be set to: .../output/.duckstation
+        // DuckStation will look in:       .../output/.duckstation/duckstation
         
-        std::fs::create_dir_all(&local_conf_path).map_err(|e| format!("Failed to create config dir: {}", e))?;
+        let xdg_base_name = ".duckstation";
+        let xdg_base_path = out_path.join(xdg_base_name);
+        let start_confirm = "true"; // StartFullscreen=true
+
+        // We must write settings.ini into the 'duckstation' subdir
+        let app_conf_path = xdg_base_path.join("duckstation");
+        
+        std::fs::create_dir_all(&app_conf_path).map_err(|e| format!("Failed to create config dir: {}", e))?;
         
         // 1. Write the USER-PROVIDED robust settings.ini
         let settings_content = r#"[Main]
@@ -178,12 +185,12 @@ Backend=SDL
 ShowGameList=false
 ShowStartWizard=false
 "#;
-        std::fs::write(local_conf_path.join("settings.ini"), settings_content)
+        std::fs::write(app_conf_path.join("settings.ini"), settings_content)
             .map_err(|e| format!("Failed to write settings.ini: {}", e))?;
             
-        // 2. Setup BIOS directory (if user provided one)
+        // 2. Setup BIOS directory (Keep it in base/.duckstation/bios for simplicity, matches settings.ini above)
         if let Some(bios_src) = &bios_path {
-            let bios_dest_dir = local_conf_path.join("bios");
+            let bios_dest_dir = xdg_base_path.join("bios");
             std::fs::create_dir_all(&bios_dest_dir).map_err(|e| format!("Failed to create bios dir: {}", e))?;
             
             let bios_src_path = PathBuf::from(bios_src);
@@ -193,10 +200,9 @@ ShowStartWizard=false
             }
         }
 
-        // 3. Inject Environment Variables using {{EXE_DIR}} placeholder
-        // The stub will replace {{EXE_DIR}} with the actual dir at runtime
-        config.env_vars.push(("XDG_CONFIG_HOME".to_string(), format!("{{{{EXE_DIR}}}}/{}", local_conf_name)));
-        config.env_vars.push(("XDG_DATA_HOME".to_string(), format!("{{{{EXE_DIR}}}}/{}", local_conf_name)));
+        // 3. Inject Environment Variables
+        config.env_vars.push(("XDG_CONFIG_HOME".to_string(), format!("{{{{EXE_DIR}}}}/{}", xdg_base_name)));
+        config.env_vars.push(("XDG_DATA_HOME".to_string(), format!("{{{{EXE_DIR}}}}/{}", xdg_base_name)));
     }
 
     match forge.forge(&game_name, &config) {
