@@ -32,9 +32,10 @@ impl EmulatorPlugin for DuckStationPlugin {
     fn prepare_launch_config(&self, rom_path: &Path, _output_dir: &Path) -> Result<LaunchConfig> {
         let binary = self.find_binary().context("Failed to locate DuckStation binary")?;
         
-        // DuckStation CLI Args similar to PCSX2: -batch -fullscreen --
+        // DuckStation CLI Args: [flags] -- <filename>
+        // See: https://github.com/stenzek/duckstation
         let args = vec![
-            "-batch".to_string(),
+            "-fullscreen".to_string(),
             "--".to_string(),
         ];
 

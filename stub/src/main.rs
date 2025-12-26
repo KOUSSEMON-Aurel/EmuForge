@@ -114,6 +114,13 @@ fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
     let rom_path = cache_dir.join(&config.rom_filename);
     let config_path = cache_dir.join(&config.config_dir);
     
+    // Debug output
+    eprintln!("🔍 DEBUG: Cache dir: {:?}", cache_dir);
+    eprintln!("🔍 DEBUG: Emulator path: {:?}", emulator_path);
+    eprintln!("🔍 DEBUG: ROM path: {:?}", rom_path);
+    eprintln!("🔍 DEBUG: ROM exists: {}", rom_path.exists());
+    eprintln!("🔍 DEBUG: Config path: {:?}", config_path);
+    
     // Make emulator executable (Linux)
     #[cfg(unix)]
     {
@@ -132,6 +139,10 @@ fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
     cmd.arg("--");
     cmd.arg(&rom_path);
     cmd.env("XDG_CONFIG_HOME", &config_path);
+    
+    // Debug: Print exact command
+    eprintln!("🚀 DEBUG: Launching command:");
+    eprintln!("   {:?} -fullscreen -- {:?}", emulator_path, rom_path);
     
     match cmd.status() {
         Ok(status) => {
