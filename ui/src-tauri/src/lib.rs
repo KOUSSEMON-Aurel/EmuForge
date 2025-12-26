@@ -346,7 +346,16 @@ fi
             }
             
             // Modify config to use wrapper instead of direct emulator
-            config.emulator_path = wrapper_path;
+            // CRITICAL: Must use absolute path for the wrapper
+            let wrapper_path_absolute = wrapper_path.canonicalize()
+                .unwrap_or_else(|_| {
+                    // Fallback: construct absolute path manually
+                    std::env::current_dir()
+                        .unwrap_or_else(|_| PathBuf::from("."))
+                        .join(&wrapper_path)
+                });
+            
+            config.emulator_path = wrapper_path_absolute;
             config.args.clear(); // Wrapper handles args
             config.rom_path = PathBuf::from(""); // Wrapper handles ROM
         }
