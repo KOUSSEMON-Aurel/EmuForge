@@ -2,7 +2,7 @@ use emuforge_core::forge::ExecutableForge;
 use emuforge_core::detection::FileAnalyzer;
 use std::path::{Path, PathBuf};
 use std::io::{Write, Read};
-use tauri::{Emitter, Manager, AppHandle};
+use tauri::Emitter;
 
 use std::sync::Mutex;
 // use tauri::State;
@@ -228,28 +228,191 @@ async fn forge_executable(
                     std::fs::write(local_ds_base.join("settings.ini"), adapted_settings).ok();
                 }
             } else {
-                // Fallback: Use USER PROVIDED COMPLETE TEMPLATE from 'templates' folder
-                let template_path = app.path().app_data_dir().unwrap().join("templates").join("duckstation").join("settings.ini");
-                 // In dev mode, we might look in project root
-                let project_template = PathBuf::from("/home/aurel/EmuForge/templates/duckstation/settings.ini");
-                
-                let settings_content = if project_template.exists() {
-                     std::fs::read_to_string(project_template).unwrap_or_default()
-                } else {
-                    // Fallback to internal minimal if external fails (should not happen in dev)
-                    r#"[Main]
+                // Fallback: Use USER PROVIDED COMPLETE TEMPLATE
+                // Verified working config with SDL mappings and SetupWizardIncomplete flag
+                let settings_template = r#"[Main]
+SettingsVersion = 3
+EmulationSpeed = 1
+FastForwardSpeed = 0
+TurboSpeed = 0
+SyncToHostRefreshRate = false
+InhibitScreensaver = true
+PauseOnFocusLoss = false
+PauseOnControllerDisconnection = false
+SaveStateOnExit = true
+CreateSaveStateBackups = true
+SaveStateCompression = ZstDefault
+ConfirmPowerOff = true
+EnableDiscordPresence = false
+LoadDevicesFromSaveStates = false
+DisableAllEnhancements = false
+RewindEnable = false
+RewindFrequency = 10
+RewindSaveSlots = 10
+RunaheadFrameCount = 0
+RunaheadForAnalogInput = false
+StartPaused = false
 StartFullscreen = true
 SetupWizardIncomplete = false
+
+[Console]
+Region = Auto
+Enable8MBRAM = false
+
+[CPU]
+ExecutionMode = Recompiler
+OverclockEnable = false
+OverclockNumerator = 1
+OverclockDenominator = 1
+RecompilerMemoryExceptions = false
+RecompilerBlockLinking = true
+RecompilerICache = false
+FastmemMode = MMap
+
+[GPU]
+Renderer = Automatic
+ResolutionScale = 1
+Multisamples = 1
+UseThread = true
+ScaledInterlacing = true
+TextureFilter = Nearest
+SpriteTextureFilter = Nearest
+DitheringMode = TrueColor
+pgxPenable = true
+PGXPCulling = true
+PGXPTextureCorrection = true
+
+[Display]
+AspectRatio = Auto (Game Native)
+Scaling = BilinearSmooth
+VSync = false
+ShowOSDMessages = true
+
+[CDROM]
+ReadaheadSectors = 8
+RegionCheck = false
+LoadImageToRAM = false
+
+[Audio]
+Backend = Cubeb
+OutputVolume = 100
+Extension = false
+
 [BIOS]
+TTYLogging = false
+PatchFastBoot = false
+FastForwardBoot = false
 SearchDirectory = bios
+
+[MemoryCards]
+Card1Type = PerGameTitle
+Card2Type = None
+Directory = memcards
+
+[ControllerPorts]
+MultitapMode = Disabled
+
+[InputSources]
+SDL = true
+SDLControllerEnhancedMode = false
+
+[Pad1]
+Type = AnalogController
+Up = Keyboard/UpArrow
+Up = SDL-0/DPadUp
+Right = Keyboard/RightArrow
+Right = SDL-0/DPadRight
+Down = Keyboard/DownArrow
+Down = SDL-0/DPadDown
+Left = Keyboard/LeftArrow
+Left = SDL-0/DPadLeft
+Triangle = Keyboard/I
+Triangle = SDL-0/Y
+Circle = Keyboard/L
+Circle = SDL-0/B
+Cross = Keyboard/K
+Cross = SDL-0/A
+Square = Keyboard/J
+Square = SDL-0/X
+Select = Keyboard/Backspace
+Select = SDL-0/Back
+Start = Keyboard/Enter
+Start = SDL-0/Start
+L1 = Keyboard/Q
+L1 = SDL-0/LeftShoulder
+R1 = Keyboard/E
+R1 = SDL-0/RightShoulder
+L2 = Keyboard/1
+L2 = SDL-0/+LeftTrigger
+R2 = Keyboard/3
+R2 = SDL-0/+RightTrigger
+L3 = Keyboard/2
+L3 = SDL-0/LeftStick
+R3 = Keyboard/4
+R3 = SDL-0/RightStick
+LLeft = Keyboard/A
+LLeft = SDL-0/-LeftX
+LRight = Keyboard/D
+LRight = SDL-0/+LeftX
+LDown = Keyboard/S
+LDown = SDL-0/+LeftY
+LUp = Keyboard/W
+LUp = SDL-0/-LeftY
+RLeft = Keyboard/F
+RLeft = SDL-0/-RightX
+RRight = Keyboard/H
+RRight = SDL-0/+RightX
+RDown = Keyboard/G
+RDown = SDL-0/+RightY
+RUp = Keyboard/T
+RUp = SDL-0/-RightY
+Analog = SDL-0/Guide
+
+[Pad2]
+Type = AnalogController
+Up = SDL-0/DPadUp
+Right = SDL-0/DPadRight
+Down = SDL-0/DPadDown
+Left = SDL-0/DPadLeft
+Triangle = SDL-0/Y
+Circle = SDL-0/B
+Cross = SDL-0/A
+Square = SDL-0/X
+Select = SDL-0/Back
+Start = SDL-0/Start
+L1 = SDL-0/LeftShoulder
+R1 = SDL-0/RightShoulder
+L2 = SDL-0/+LeftTrigger
+R2 = SDL-0/+RightTrigger
+L3 = SDL-0/LeftStick
+R3 = SDL-0/RightStick
+LLeft = SDL-0/-LeftX
+LRight = SDL-0/+LeftX
+LDown = SDL-0/+LeftY
+LUp = SDL-0/-LeftY
+RLeft = SDL-0/-RightX
+RRight = SDL-0/+RightX
+RDown = SDL-0/+RightY
+RUp = SDL-0/-RightY
+
+[Hotkeys]
+FastForward = Keyboard/Tab
+TogglePause = Keyboard/Space
+Screenshot = Keyboard/F10
+ToggleFullscreen = Keyboard/F11
+OpenPauseMenu = Keyboard/Escape
+LoadSelectedSaveState = Keyboard/F1
+SaveSelectedSaveState = Keyboard/F2
+
 [UI]
+ShowGameList = false
 ShowStartWizard = false
+SetupWizardIncomplete = false
+
 [GameList]
 RecursivePaths = {{EXE_DIR}}
-"#.to_string()
-                };
-                
-                std::fs::write(local_ds_base.join("settings.ini"), settings_content).ok();
+"#;
+                std::fs::write(local_ds_base.join("settings.ini"), settings_template).ok();
             }
             
             // Copy BIOS
