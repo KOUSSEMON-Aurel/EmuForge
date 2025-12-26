@@ -164,16 +164,136 @@ async fn forge_executable(
             std::fs::create_dir_all(&local_ds_base).ok();
             
             if global_ds_settings.exists() {
-                // Copy entire global config
+                // Copy entire global config and adapt BIOS path
                 if let Ok(settings_content) = std::fs::read_to_string(&global_ds_settings) {
-                                        // Adapt BIOS path
-                    let adapted_settings = settings_content.replace(
+                    // Adapt BIOS path to point to local copy
+                    let mut adapted_settings = settings_content.replace(
                         "SearchDirectory = bios",
                         &format!("SearchDirectory = {{{{EXE_DIR}}}}/.duckstation_local/bios")
                     );
                     
+                    // Ensure StartFullscreen is enabled (add to [Main] if missing)
+                    if !adapted_settings.contains("StartFullscreen") {
+                        adapted_settings = adapted_settings.replace(
+                            "[Main]",
+                            "[Main]\nStartFullscreen = true"
+                        );
+                    } else {
+                        adapted_settings = adapted_settings.replace(
+                            "StartFullscreen = false",
+                            "StartFullscreen = true"
+                        );
+                    }
+                    
                     std::fs::write(local_ds_base.join("settings.ini"), adapted_settings).ok();
                 }
+            } else {
+                // Fallback: Use embedded COMPLETE template based on user's config
+                let settings_template = r#"[Main]
+StartFullscreen = true
+
+[Console]
+Region = Auto
+Enable8MBRAM = false
+
+[CPU]
+ExecutionMode = Recompiler
+OverclockEnable = false
+FastmemMode = MMap
+
+[GPU]
+Renderer = Automatic
+ResolutionScale = 1
+TextureFilter = Nearest
+SpriteTextureFilter = Nearest
+DithermodeMode = TrueColor
+
+[Debug]
+ShowVRAM = false
+
+[Display]
+CropMode = Overscan
+AspectRatio = Auto (Game Native)
+Alignment = Center
+Scaling = BilinearSmooth
+VSync = false
+ShowOSD Messages = true
+
+[CDROM]
+ReadaheadSectors = 8
+RegionCheck = false
+
+[Audio]
+Backend = Cubeb
+StretchMode = TimeStretch
+OutputVolume = 100
+
+[BIOS]
+TTYLogging = false
+PatchFastBoot = false
+FastForwardBoot = false
+SearchDirectory = {{EXE_DIR}}/.duckstation_local/bios
+
+[MemoryCards]
+Card1Type = PerGameTitle
+Card2Type = None
+Directory = memcards
+
+[ControllerPorts]
+MultitapMode = Disabled
+
+[InputSources]
+SDL = true
+SDLControllerEnhancedMode = false
+
+[Pad1]
+Type = AnalogController
+Up = Keyboard/UpArrow
+Right = Keyboard/RightArrow
+Down = Keyboard/DownArrow
+Left = Keyboard/LeftArrow
+Triangle = Keyboard/I
+Circle = Keyboard/L
+Cross = Keyboard/K
+Square = Keyboard/J
+Select = Keyboard/Backspace
+Start = Keyboard/Enter
+L1 = Keyboard/Q
+R1 = Keyboard/E
+L2 = Keyboard/1
+R2 = Keyboard/3
+L3 = Keyboard/2
+R3 = Keyboard/4
+LLeft = Keyboard/A
+LRight = Keyboard/D
+LDown = Keyboard/S
+LUp = Keyboard/W
+RLeft = Keyboard/F
+RRight = Keyboard/H
+RDown = Keyboard/G
+RUp = Keyboard/T
+
+[Pad2]
+Type = None
+
+[Hotkeys]
+FastForward = Keyboard/Tab
+TogglePause = Keyboard/Space
+Screenshot = Keyboard/F10
+ToggleFullscreen = Keyboard/F11
+OpenPauseMenu = Keyboard/Escape
+LoadSelectedSaveState = Keyboard/F1
+SaveSelectedSaveState = Keyboard/F2
+
+[UI]
+ShowGameList = false
+ShowStartWizard = false
+
+[Logging]
+LogLevel = Info
+LogToConsole = false
+"#;
+                std::fs::write(local_ds_base.join("settings.ini"), settings_template).ok();
             }
             
             // Copy BIOS
