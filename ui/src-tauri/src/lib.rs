@@ -162,15 +162,39 @@ async fn forge_executable(
         
         std::fs::create_dir_all(&app_conf_path).map_err(|e| format!("Failed to create config dir: {}", e))?;
         
-        // 1. Write the USER-PROVIDED robust settings.ini
-        let settings_content = r#"[Main]
+        // Determine BIOS filename (CRITICAL for bypassing wizard)
+        let bios_filename_for_config = if let Some(bios_src) = &bios_path {
+            let bios_src_path = PathBuf::from(bios_src);
+            bios_src_path.file_name()
+                .and_then(|n| n.to_str())
+                .map(|s| s.to_string())
+        } else {
+            None
+        };
+        
+        // Build settings.ini with DefaultBIOS if available
+        let bios_section = if let Some(ref bios_name) = bios_filename_for_config {
+            format!(r#"[BIOS]
+SearchDirectory={{{{EXE_DIR}}}}/.duckstation/bios
+DefaultBIOS={}
+RecursivePaths=false
+SearchDirectoriesRecursively=false
+"#, bios_name)
+        } else {
+            r#"[BIOS]
+SearchDirectory={{EXE_DIR}}/.duckstation/bios
+RecursivePaths=false
+SearchDirectoriesRecursively=false
+"#.to_string()
+        };
+        
+        // 1. Write the COMPLETE settings.ini with BIOS configuration
+        let settings_content = format!(r#"[Main]
 Language=en
 ConfirmPowerOff=false
 StartFullscreen=true
 
-[BIOS]
-SearchDirectory={{EXE_DIR}}/.duckstation/bios
-
+{}
 [Console]
 Region=Auto
 
@@ -183,7 +207,8 @@ Backend=SDL
 [UI]
 ShowGameList=false
 ShowStartWizard=false
-"#;
+"#, bios_section);
+        
         std::fs::write(app_conf_path.join("settings.ini"), settings_content)
             .map_err(|e| format!("Failed to write settings.ini: {}", e))?;
             
