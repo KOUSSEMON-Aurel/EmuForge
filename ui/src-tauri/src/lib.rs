@@ -904,8 +904,12 @@ fn forge_portable_executable(
                 .to_string_lossy()
                 .to_string();
             
-            // Construct destination path: output_dir/pcsx2_data/PCSX2/bios/filename
-            let bios_dest_dir = output_dir.join("pcsx2_data/PCSX2/bios");
+            // Construct destination path based on emulator type
+            let bios_dest_dir = if driver_id == "duckstation" {
+                output_dir.join(".duckstation_home/.local/share/duckstation/bios")
+            } else {
+                output_dir.join("pcsx2_data/PCSX2/bios")
+            };
             std::fs::create_dir_all(&bios_dest_dir)
                 .map_err(|e| format!("Failed to create BIOS dir: {}", e))?;
                 
@@ -921,20 +925,35 @@ fn forge_portable_executable(
         add_directory_to_zip(&app, &mut zip, &pcsx2_config_dir, "pcsx2_data", options)?;
     }
 
-    // DuckStation: Inject minimal settings.ini to bypass First Run Wizard
+    // DuckStation: Write complete settings.ini and add .duckstation_home to ZIP
     if driver_id == "duckstation" {
-        // Create a dummy settings.ini content
-        let settings_content = "[Main]\nSettingsVersion=3\nStartFullscreen=true\n";
+        let duckstation_home = output_dir.join(".duckstation_home");
+        let ds_data_dir = duckstation_home.join(".local/share/duckstation");
         
-        // We need to place it at: pcsx2_data/duckstation/settings.ini
-        // (Since config_dir is hardcoded to "pcsx2_data" for now)
-        let settings_path = Path::new("pcsx2_data").join("duckstation").join("settings.ini");
+        // Copy the same settings template used in non-portable mode
+        // We read it from the non-portable code section around line 170
+        let settings_content = std::fs::read_to_string(ds_data_dir.join("settings.ini"))
+            .unwrap_or_else(|_| {
+                // Fallback: use the verified template if file doesn't exist
+                // This shouldn't happen but provides safety
+                r#"[Main]
+SettingsVersion = 3
+StartFullscreen = true
+SetupWizardIncomplete = false
+
+[BIOS]
+SearchDirectory = bios
+
+[UI]
+ShowStartWizard = false
+"#.to_string()
+            });
         
-        // We write it to the ZIP using the same options as other files
-        zip.start_file(settings_path.to_string_lossy(), options)
-            .map_err(|e| format!("Failed to add settings.ini to zip: {}", e))?;
-        zip.write_all(settings_content.as_bytes())
-            .map_err(|e| format!("Failed to write settings.ini content: {}", e))?;
+        std::fs::write(ds_data_dir.join("settings.ini"), settings_content)
+            .map_err(|e| format!("Failed to write settings.ini: {}", e))?;
+        
+        // Add entire .duckstation_home structure to ZIP
+        add_directory_to_zip(&app, &mut zip, &duckstation_home, ".duckstation_home", options)?;
     }
     
     zip.finish().map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
