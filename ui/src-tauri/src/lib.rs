@@ -347,62 +347,53 @@ LogToConsole = false
                 }
             }
             
-            // DUCKSTATION "FAKE PORTABLE" STRATEGY:
-            // Since DuckStation ignores XDG vars but "Portable Mode" works, we simulate it!
-            // We create a temporary sandbox, put the AppImage and portable.txt there,
-            // and inject our config/bios. This forces DuckStation to use our settings.
+            // DUCKSTATION "APPIMAGE PORTABLE HOME" STRATEGY:
+            // Native AppImage feature! We redirect $HOME to a local folder.
+            // This isolates DuckStation completely and forces it to use our config
+            // located in FAKE_HOME/.local/share/duckstation/settings.ini
             
             // Create wrapper script
             let wrapper_script = format!(r#"#!/bin/bash
 # Get directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" && pwd )"
 
-# Original Emulator Path
+# Paths
 REAL_EMULATOR="{}"
+FAKE_HOME="$SCRIPT_DIR/.duckstation_home"
+DS_DATA_DIR="$FAKE_HOME/.local/share/duckstation"
 
-# Temporary Sandbox
-SANDBOX_DIR="/tmp/duckstation_launch_$$"
-mkdir -p "$SANDBOX_DIR"
+# Prepare Fake Home Structure
+mkdir -p "$DS_DATA_DIR"
 
-echo "Launch Sandbox: $SANDBOX_DIR"
+# Source Sources
+LOCAL_SOURCE_DIR="$SCRIPT_DIR/.duckstation_local"
 
-# 1. Symlink the AppImage to the sandbox
-# We rename it to DuckStation-x64.AppImage just to be standard
-ln -s "$REAL_EMULATOR" "$SANDBOX_DIR/DuckStation.AppImage"
-
-# 2. Activate Portable Mode
-touch "$SANDBOX_DIR/portable.txt"
-
-# 3. Inject our LOCAL Settings
-# In portable mode, settings.ini goes directly next to the executable (or in user/config, we try both to be safe)
-LOCAL_SETTINGS="$SCRIPT_DIR/.duckstation_local/settings.ini"
-
-if [ -f "$LOCAL_SETTINGS" ]; then
-    # Ensure BIOS path is relative 'bios' (which we verified worked for portable mode)
-    # We copy it to the root of sandbox
-    cp "$LOCAL_SETTINGS" "$SANDBOX_DIR/settings.ini"
+# 1. Inject Settings
+# We copy our prepared settings.ini to the standard location inside fake home
+if [ -f "$LOCAL_SOURCE_DIR/settings.ini" ]; then
+    # Update BIOS path in settings to be relative to the new home location if needed
+    # But since we copy BIOS to the same folder, "SearchDirectory = bios" works perfectly!
+    cp "$LOCAL_SOURCE_DIR/settings.ini" "$DS_DATA_DIR/settings.ini"
 fi
 
-# 4. Inject BIOS
-# Settings point to 'SearchDirectory = bios', so we copy bios folder to sandbox root
-LOCAL_BIOS="$SCRIPT_DIR/.duckstation_local/bios"
-if [ -d "$LOCAL_BIOS" ]; then
-    cp -r "$LOCAL_BIOS" "$SANDBOX_DIR/bios"
+# 2. Inject BIOS
+if [ -d "$LOCAL_SOURCE_DIR/bios" ]; then
+    # Copy BIOS folder next to settings.ini inside fake home
+    cp -r "$LOCAL_SOURCE_DIR/bios" "$DS_DATA_DIR/bios"
 fi
 
-# 5. Launch from Sandbox
-cd "$SANDBOX_DIR"
+# 3. Launch with Portable Home
+# DuckStation will see $FAKE_HOME as its user home directory
+# It will look for config in $FAKE_HOME/.local/share/duckstation
 
 # Force X11 just in case
 export QT_QPA_PLATFORM=xcb
 
-./DuckStation.AppImage -fullscreen -- "{}"
+# Launch!
+# Note: --appimage-portable-home MUST be the first argument to the AppImage runtime
+"$REAL_EMULATOR" --appimage-portable-home "$FAKE_HOME" -fullscreen -- "{}"
 
-# 6. Cleanup
-# Allow some time for cleanup or do it on exit trap? 
-# For now, simple removal.
-cd "$SCRIPT_DIR"
-rm -rf "$SANDBOX_DIR"
+# No cleanup needed - we keep the home folder persistent for saves/memcards!
 "#, config.emulator_path.display(), config.rom_path.display());
             
             // Use absolute path for wrapper
