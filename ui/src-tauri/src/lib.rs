@@ -299,10 +299,26 @@ fn forge_portable_executable(
         }
     }
     
-    // Add PCSX2 config if exists (now includes the BIOS we just copied)
+    // Add PCSX2 config if exists
     let pcsx2_config_dir = output_dir.join("pcsx2_data");
     if driver_id == "pcsx2" && pcsx2_config_dir.exists() {
         add_directory_to_zip(&app, &mut zip, &pcsx2_config_dir, "pcsx2_data", options)?;
+    }
+
+    // DuckStation: Inject minimal settings.ini to bypass First Run Wizard
+    if driver_id == "duckstation" {
+        // Create a dummy settings.ini content
+        let settings_content = "[Main]\nSettingsVersion=3\nStartFullscreen=true\n";
+        
+        // We need to place it at: pcsx2_data/duckstation/settings.ini
+        // (Since config_dir is hardcoded to "pcsx2_data" for now)
+        let settings_path = Path::new("pcsx2_data").join("duckstation").join("settings.ini");
+        
+        // We write it to the ZIP using the same options as other files
+        zip.start_file(settings_path.to_string_lossy(), options)
+            .map_err(|e| format!("Failed to add settings.ini to zip: {}", e))?;
+        zip.write_all(settings_content.as_bytes())
+            .map_err(|e| format!("Failed to write settings.ini content: {}", e))?;
     }
     
     zip.finish().map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
