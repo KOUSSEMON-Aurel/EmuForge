@@ -146,88 +146,92 @@ async fn forge_executable(
 
     // Generic Fullscreen Logic handled above...
 
-    // ISOLATED CONFIG STRATEGY provided by user
-    // Instead of messing with global config, we create a local .duckstation folder
-    // and force XDG_CONFIG_HOME/XDG_DATA_HOME to point to it.
+    // DUCKSTATION RADICAL SOLUTION:
+   // DuckStation AppImage is STUBBORN and ignores XDG vars.
+    // We'll create a launch wrapper script that:
+    // 1. Backs up ~/.local/share/duckstation
+    // 2. Symlinks our local config there
+    // 3. Launches DuckStation
+    // 4. Restores original config
+    
     if driver_id == "duckstation" {
-        // Define local config dir inside output
-        // XDG_CONFIG_HOME will be set to: .../output/.duckstation
-        // DuckStation will look in:       .../output/.duckstation/duckstation
-        
-        let xdg_base_name = ".duckstation";
-        let xdg_base_path = out_path.join(xdg_base_name);
-
-        // We must write settings.ini into the 'duckstation' subdir
-        let app_conf_path = xdg_base_path.join("duckstation");
-        
-        std::fs::create_dir_all(&app_conf_path).map_err(|e| format!("Failed to create config dir: {}", e))?;
-        
-        // Determine BIOS filename (CRITICAL for bypassing wizard)
-        let bios_filename_for_config = if let Some(bios_src) = &bios_path {
-            let bios_src_path = PathBuf::from(bios_src);
-            bios_src_path.file_name()
-                .and_then(|n| n.to_str())
-                .map(|s| s.to_string())
-        } else {
-            None
-        };
-        
-        // Build settings.ini with DefaultBIOS if available
-        let bios_section = if let Some(ref bios_name) = bios_filename_for_config {
-            format!(r#"[BIOS]
-SearchDirectory={{{{EXE_DIR}}}}/.duckstation/bios
-DefaultBIOS={}
-RecursivePaths=false
-SearchDirectoriesRecursively=false
-"#, bios_name)
-        } else {
-            r#"[BIOS]
-SearchDirectory={{EXE_DIR}}/.duckstation/bios
-RecursivePaths=false
-SearchDirectoriesRecursively=false
-"#.to_string()
-        };
-        
-        // 1. Write the COMPLETE settings.ini with BIOS configuration
-        let settings_content = format!(r#"[Main]
-Language=en
-ConfirmPowerOff=false
-StartFullscreen=true
-
-{}
-[Console]
-Region=Auto
-
-[GPU]
-Renderer=OpenGL
-
-[Audio]
-Backend=SDL
-
-[UI]
-ShowGameList=false
-ShowStartWizard=false
-"#, bios_section);
-        
-        std::fs::write(app_conf_path.join("settings.ini"), settings_content)
-            .map_err(|e| format!("Failed to write settings.ini: {}", e))?;
+        if let Some(data_dir) = dirs::data_local_dir() {
+            let global_ds_dir = data_dir.join("duckstation");
+            let global_ds_settings = global_ds_dir.join("settings.ini");
             
-        // 2. Setup BIOS directory (Keep it in base/.duckstation/bios for simplicity, matches settings.ini above)
-        if let Some(bios_src) = &bios_path {
-            let bios_dest_dir = xdg_base_path.join("bios");
-            std::fs::create_dir_all(&bios_dest_dir).map_err(|e| format!("Failed to create bios dir: {}", e))?;
+            // Copy user's global config as template if it exists
+            let local_ds_base = out_path.join(".duckstation_local");
+            std::fs::create_dir_all(&local_ds_base).ok();
             
-            let bios_src_path = PathBuf::from(bios_src);
-            if let Some(name) = bios_src_path.file_name() {
-                std::fs::copy(&bios_src_path, bios_dest_dir.join(name))
-                     .map_err(|e| format!("Failed to copy BIOS: {}", e))?;
+            if global_ds_settings.exists() {
+                // Copy entire global config
+                if let Ok(settings_content) = std::fs::read_to_string(&global_ds_settings) {
+                                        // Adapt BIOS path
+                    let adapted_settings = settings_content.replace(
+                        "SearchDirectory = bios",
+                        &format!("SearchDirectory = {{{{EXE_DIR}}}}/.duckstation_local/bios")
+                    );
+                    
+                    std::fs::write(local_ds_base.join("settings.ini"), adapted_settings).ok();
+                }
             }
-        }
+            
+            // Copy BIOS
+            if let Some(bios_src) = &bios_path {
+                let bios_dest_dir = local_ds_base.join("bios");
+                std::fs::create_dir_all(&bios_dest_dir).ok();
+                
+                let bios_src_path = PathBuf::from(bios_src);
+                if let Some(name) = bios_src_path.file_name() {
+                    std::fs::copy(&bios_src_path, bios_dest_dir.join(name)).ok();
+                }
+            }
+            
+            // Create wrapper script
+            let wrapper_script = format!(r#"#!/bin/bash
+BACKUP_DIR="/tmp/duckstation_backup_$$"
+LOCAL_CONFIG="{{{{EXE_DIR}}}}/.duckstation_local"
+GLOBAL_CONFIG="$HOME/.local/share/duckstation"
 
-        // 3. Inject Environment Variables
-        config.env_vars.push(("XDG_CONFIG_HOME".to_string(), format!("{{{{EXE_DIR}}}}/{}", xdg_base_name)));
-        config.env_vars.push(("XDG_DATA_HOME".to_string(), format!("{{{{EXE_DIR}}}}/{}", xdg_base_name)));
+# Backup existing config
+if [ -d "$GLOBAL_CONFIG" ]; then
+    mv "$GLOBAL_CONFIG" "$BACKUP_DIR"
+fi
+
+# Symlink our local config
+ln -s "$LOCAL_CONFIG" "$GLOBAL_CONFIG"
+
+# Launch DuckStation
+{} -fullscreen -- "{}"
+
+# Restore original config
+rm "$GLOBAL_CONFIG"
+if [ -d "$BACKUP_DIR" ]; then
+    mv "$BACKUP_DIR" "$GLOBAL_CONFIG"
+fi
+"#, config.emulator_path.display(), config.rom_path.display());
+            
+            let wrapper_path = out_path.join(&format!("{}_duckstation_wrapper.sh", game_name));
+            std::fs::write(&wrapper_path, wrapper_script).ok();
+            
+            // Make wrapper executable
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if let Ok(meta) = std::fs::metadata(&wrapper_path) {
+                    let mut perms = meta.permissions();
+                    perms.set_mode(0o755);
+                    std::fs::set_permissions(&wrapper_path, perms).ok();
+                }
+            }
+            
+            // Modify config to use wrapper instead of direct emulator
+            config.emulator_path = wrapper_path;
+            config.args.clear(); // Wrapper handles args
+            config.rom_path = PathBuf::from(""); // Wrapper handles ROM
+        }
     }
+
 
     match forge.forge(&game_name, &config) {
         Ok(path) => Ok(path.to_string_lossy().to_string()),
