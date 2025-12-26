@@ -347,47 +347,62 @@ LogToConsole = false
                 }
             }
             
-            // DUCKSTATION WRAPPER REFINED:
-            // Instead of swapping the whole folder (risky, symlink timing issues),
-            // We ONLY swap the settings.ini file.
-            // This preserves the user's existing data folder structure while forcing our config.
+            // DUCKSTATION "FAKE PORTABLE" STRATEGY:
+            // Since DuckStation ignores XDG vars but "Portable Mode" works, we simulate it!
+            // We create a temporary sandbox, put the AppImage and portable.txt there,
+            // and inject our config/bios. This forces DuckStation to use our settings.
             
             // Create wrapper script
             let wrapper_script = format!(r#"#!/bin/bash
 # Get directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" && pwd )"
 
-# Paths
-GLOBAL_CONF_DIR="$HOME/.local/share/duckstation"
-GLOBAL_SETTINGS="$GLOBAL_CONF_DIR/settings.ini"
-BACKUP_SETTINGS="/tmp/duckstation_settings_backup_$$"
+# Original Emulator Path
+REAL_EMULATOR="{}"
+
+# Temporary Sandbox
+SANDBOX_DIR="/tmp/duckstation_launch_$$"
+mkdir -p "$SANDBOX_DIR"
+
+echo "Launch Sandbox: $SANDBOX_DIR"
+
+# 1. Symlink the AppImage to the sandbox
+# We rename it to DuckStation-x64.AppImage just to be standard
+ln -s "$REAL_EMULATOR" "$SANDBOX_DIR/DuckStation.AppImage"
+
+# 2. Activate Portable Mode
+touch "$SANDBOX_DIR/portable.txt"
+
+# 3. Inject our LOCAL Settings
+# In portable mode, settings.ini goes directly next to the executable (or in user/config, we try both to be safe)
 LOCAL_SETTINGS="$SCRIPT_DIR/.duckstation_local/settings.ini"
 
-# Ensure global config dir exists
-mkdir -p "$GLOBAL_CONF_DIR"
-
-# Backup existing settings.ini if it exists
-if [ -f "$GLOBAL_SETTINGS" ]; then
-    cp "$GLOBAL_SETTINGS" "$BACKUP_SETTINGS"
+if [ -f "$LOCAL_SETTINGS" ]; then
+    # Ensure BIOS path is relative 'bios' (which we verified worked for portable mode)
+    # We copy it to the root of sandbox
+    cp "$LOCAL_SETTINGS" "$SANDBOX_DIR/settings.ini"
 fi
 
-# Inject our local settings
-# We need to update the BIOS path in local settings to be ABSOLUTE before copying
-# because DuckStation will read it from ~/.local/... but the bios is in SCRIPT_DIR
-sed "s|SearchDirectory = bios|SearchDirectory = $SCRIPT_DIR/.duckstation_local/bios|g" "$LOCAL_SETTINGS" > "$GLOBAL_SETTINGS"
+# 4. Inject BIOS
+# Settings point to 'SearchDirectory = bios', so we copy bios folder to sandbox root
+LOCAL_BIOS="$SCRIPT_DIR/.duckstation_local/bios"
+if [ -d "$LOCAL_BIOS" ]; then
+    cp -r "$LOCAL_BIOS" "$SANDBOX_DIR/bios"
+fi
 
-# Launch DuckStation
-# Force X11 to avoid Wayland composition issues with Wizard logic
+# 5. Launch from Sandbox
+cd "$SANDBOX_DIR"
+
+# Force X11 just in case
 export QT_QPA_PLATFORM=xcb
-"{}" -fullscreen -- "{}"
 
-# Restore original settings
-if [ -f "$BACKUP_SETTINGS" ]; then
-    mv "$BACKUP_SETTINGS" "$GLOBAL_SETTINGS"
-else
-    # If no backup existed, remove the injected file to clean up
-    rm "$GLOBAL_SETTINGS"
-fi
+./DuckStation.AppImage -fullscreen -- "{}"
+
+# 6. Cleanup
+# Allow some time for cleanup or do it on exit trap? 
+# For now, simple removal.
+cd "$SCRIPT_DIR"
+rm -rf "$SANDBOX_DIR"
 "#, config.emulator_path.display(), config.rom_path.display());
             
             // Use absolute path for wrapper
