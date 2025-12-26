@@ -347,10 +347,10 @@ LogToConsole = false
                 }
             }
             
-            // DUCKSTATION "APPIMAGE PORTABLE HOME" STRATEGY:
-            // Native AppImage feature! We redirect $HOME to a local folder.
-            // This isolates DuckStation completely and forces it to use our config
-            // located in FAKE_HOME/.local/share/duckstation/settings.ini
+            // DUCKSTATION "EXPORT HOME" STRATEGY:
+            // The standard Linux way to sandbox an app.
+            // We simply change the HOME environment variable.
+            // DuckStation will write to $NEW_HOME/.local/share/duckstation.
             
             // Create wrapper script
             let wrapper_script = format!(r#"#!/bin/bash
@@ -368,12 +368,12 @@ LOCAL_EMU="$SCRIPT_DIR/$EMU_FILENAME"
 
 if [ -f "$LOCAL_EMU" ]; then
     REAL_EMULATOR="$LOCAL_EMU"
-    echo "Using Local Emulator: $REAL_EMULATOR"
 else
     # 2. Fallback to system path (Non-Portable / Launcher Mode)
     REAL_EMULATOR="$BUILD_TIME_PATH"
-    echo "Using System Emulator: $REAL_EMULATOR"
 fi
+
+# Fake Home
 FAKE_HOME="$SCRIPT_DIR/.duckstation_home"
 DS_DATA_DIR="$FAKE_HOME/.local/share/duckstation"
 
@@ -384,31 +384,22 @@ mkdir -p "$DS_DATA_DIR"
 LOCAL_SOURCE_DIR="$SCRIPT_DIR/.duckstation_local"
 
 # 1. Inject Settings
-# We copy our prepared settings.ini to the standard location inside fake home
 if [ -f "$LOCAL_SOURCE_DIR/settings.ini" ]; then
-    # Update BIOS path in settings to be relative to the new home location if needed
-    # But since we copy BIOS to the same folder, "SearchDirectory = bios" works perfectly!
     cp "$LOCAL_SOURCE_DIR/settings.ini" "$DS_DATA_DIR/settings.ini"
 fi
 
 # 2. Inject BIOS
 if [ -d "$LOCAL_SOURCE_DIR/bios" ]; then
-    # Copy BIOS folder next to settings.ini inside fake home
     cp -r "$LOCAL_SOURCE_DIR/bios" "$DS_DATA_DIR/bios"
 fi
 
-# 3. Launch with Portable Home
-# DuckStation will see $FAKE_HOME as its user home directory
-# It will look for config in $FAKE_HOME/.local/share/duckstation
-
-# Force X11 just in case
+# 3. Launch with Modified HOME
+# This isolates DuckStation completely.
+export HOME="$FAKE_HOME"
 export QT_QPA_PLATFORM=xcb
 
 # Launch!
-# Note: --appimage-portable-home MUST be the first argument to the AppImage runtime
-"$REAL_EMULATOR" --appimage-portable-home "$FAKE_HOME" -fullscreen -- "{}"
-
-# No cleanup needed - we keep the home folder persistent for saves/memcards!
+"$REAL_EMULATOR" -fullscreen -- "{}"
 "#, config.emulator_path.display(), config.rom_path.display());
             
             // Use absolute path for wrapper
