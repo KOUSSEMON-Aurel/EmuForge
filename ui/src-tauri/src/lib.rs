@@ -8,7 +8,7 @@ use std::sync::Mutex;
 // use tauri::State;
 
 /// Marker that indicates the start of embedded data in portable mode
-const PORTABLE_MARKER: &[u8] = b"EMUFORGE_PORTABLE_DATA_START";
+const PORTABLE_MARKER: &[u8] = &[0xDE, 0xAD, 0xBE, 0xEF, 0x45, 0x4D, 0x55, 0x46, 0x4F, 0x52, 0x47, 0x45, 0x56, 0x32];
 
 #[allow(dead_code)]
 struct AppState {
