@@ -166,11 +166,51 @@ async fn forge_executable(
             if global_ds_settings.exists() {
                 // Copy entire global config and adapt BIOS path
                 if let Ok(settings_content) = std::fs::read_to_string(&global_ds_settings) {
-                    // Adapt BIOS path to point to local copy
+                    // Adapt BIOS path to point to local copy (WHICH IS SYMLINKED TO STANDARD LOCATION)
+                    // DuckStation sees our .duckstation_local folder AS ~/.local/share/duckstation
+                    // So we just need to say "bios" (relative) or the standard absolute path.
+                    // "bios" is safest as it works regardless of where the symlink points.
                     let mut adapted_settings = settings_content.replace(
                         "SearchDirectory = bios",
-                        &format!("SearchDirectory = {{{{EXE_DIR}}}}/.duckstation_local/bios")
+                        "SearchDirectory = bios" // Keep it relative/default!
                     );
+                    
+                    // If the user had an absolute path, force it to relative 'bios'
+                    // This handles cases where they had /media/... or other paths
+                    if adapted_settings.contains("SearchDirectory = /") {
+                         // Simple regex-like replacement not easy in Rust std without crate, 
+                         // but we can try replacing the whole line if we find the key
+                         // For now, let's append our override at the end of [BIOS] section?
+                         // Or better: just know that DuckStation reads the file.
+                         // Let's replace the common absolute paths we might see or just leave it if it's external?
+                         // User said they configured it "as I think".
+                         // If they used external BIOS, we copied it to local 'bios' folder.
+                         // So we MUST force look in 'bios' folder.
+                         
+                         // Let's replace the line completely if possible.
+                         // We'll proceed line by line to be safe.
+                         let lines: Vec<&str> = adapted_settings.lines().collect();
+                         let mut new_lines = Vec::new();
+                         let mut bios_section = false;
+                         
+                         for line in lines {
+                             if line.trim() == "[BIOS]" {
+                                 bios_section = true;
+                                 new_lines.push(line.to_string());
+                                 continue;
+                             }
+                             if bios_section && line.starts_with("[") {
+                                 bios_section = false;
+                             }
+                             
+                             if bios_section && line.trim().starts_with("SearchDirectory") {
+                                 new_lines.push("SearchDirectory = bios".to_string());
+                             } else {
+                                 new_lines.push(line.to_string());
+                             }
+                         }
+                         adapted_settings = new_lines.join("\n");
+                    }
                     
                     // Ensure StartFullscreen is enabled (add to [Main] if missing)
                     if !adapted_settings.contains("StartFullscreen") {
