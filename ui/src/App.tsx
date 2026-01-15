@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+
 import { listen } from '@tauri-apps/api/event';
 import './App.css';
 
@@ -310,7 +310,14 @@ function App() {
           <button className="theme-toggle" onClick={toggleTheme} title="Toggle Theme" style={{ marginRight: '8px' }}>
             {theme === 'light' ? <MoonIcon /> : <SunIcon />}
           </button>
-          <button className="win-btn close-btn-win" onClick={() => getCurrentWindow().close()} title="Close" style={{ zIndex: 9999, position: 'relative' }}>&times;</button>
+          <button
+            className="win-btn close-btn-win"
+            onClick={() => invoke('quit_app')}
+            title="Close"
+            style={{ zIndex: 9999, position: 'relative', cursor: 'pointer' }}
+          >
+            &times;
+          </button>
         </div>
       </div>
 

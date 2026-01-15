@@ -14,7 +14,7 @@ tar = "0.4.44"
 thiserror.workspace = true
 walkdir.workspace = true
 which = "8.0.0"
-zip = "7.0.0"
+zip = { version = "7.1.0", default-features = false, features = ["aes-crypto", "bzip2", "deflate64", "deflate", "time", "zstd"] }
 
 [dev-dependencies]
 tempfile = "3.24.0"
