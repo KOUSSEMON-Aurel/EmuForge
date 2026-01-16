@@ -61,6 +61,13 @@ impl EmulatorPlugin for DolphinPlugin {
         vec![]
     }
 
+    fn portable_launch_args(&self, _fullscreen: bool) -> (Vec<String>, Vec<String>) {
+        // Dolphin portable needs batch mode (-b) and execute (-e) before ROM
+        // It does NOT support --fullscreen arg. Fullscreen must be configured in INI if needed.
+        let args_before = vec!["-b".to_string(), "-e".to_string()];
+        (args_before, vec![])
+    }
+
     fn clone_with_path(&self, binary_path: PathBuf) -> Box<dyn EmulatorPlugin> {
         Box::new(DolphinPlugin::new(Some(binary_path)))
     }

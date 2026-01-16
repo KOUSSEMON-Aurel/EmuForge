@@ -25,8 +25,9 @@ sudo apt install libwebkit2gtk-4.0-dev \
 
 ### 🪟 Windows
 
-1. Installez **Microsoft Visual Studio C++ Build Tools** (disponible via l'installateur Visual Studio).
-2. Assurez-vous de cocher "Développement Desktop C++".
+1. Installez **Microsoft Visual Studio C++ Build Tools** : [Télécharger ici](https://visualstudio.microsoft.com/visual-cpp-build-tools/)
+2. Lors de l'installation, dans l'onglet "Workloads", cochez **"Développement Desktop en C++"** (Desktop development with C++).
+   > **Note :** Cela installera le compilateur MSVC et le linker `link.exe` nécessaires.
 
 ### 🦀 Rust & Node.js (Toutes plateformes)
 

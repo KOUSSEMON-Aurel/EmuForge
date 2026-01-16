@@ -247,7 +247,15 @@ fn forge_portable_executable(
         .ok_or("Invalid emulator path")?
         .to_string_lossy()
         .to_string();
-    add_file_to_zip(&app, &mut zip, &emulator_path, &emu_filename, options)?;
+    
+    // Ensure emulator is executable
+    let mut emu_options = options.clone();
+    #[cfg(unix)]
+    {
+        emu_options = emu_options.unix_permissions(0o755);
+    }
+    
+    add_file_to_zip(&app, &mut zip, &emulator_path, &emu_filename, emu_options)?;
     
     // Add ROM
     // Optimization: Use Stored (no compression) for ROMs to speed up forging significantly.

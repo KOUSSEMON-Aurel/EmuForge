@@ -38,7 +38,7 @@ impl EmulatorDownloader {
 
             // Dolphin - Pinned 5.0-19870
             ("dolphin", true) => Some(("https://dl.dolphin-emu.org/releases/202309/dolphin-master-5.0-19870-x64.7z", "dolphin-x64.7z")),
-            ("dolphin", false) => Some(("https://dl.dolphin-emu.org/releases/202309/dolphin-master-5.0-19870-x64.dmg", "dolphin.dmg")), // Note: DMG is macOS. Linux users should use Flatpak/System package.
+            ("dolphin", false) => Some(("https://github.com/pkgforge-dev/Dolphin-emu-AppImage/releases/download/2512%402026-01-15_1768463428/Dolphin_Emulator-2512-anylinux.squashfs-x86_64.AppImage", "Dolphin.AppImage")),
 
             // Other emulators would need manual implementation or usage of system packages
             _ => None
@@ -59,7 +59,7 @@ impl EmulatorDownloader {
                  "ppsspp" => "PPSSPP.AppImage",
                  "duckstation" => "DuckStation.AppImage",
                  "pcsx2" => "PCSX2.AppImage",
-                 "dolphin" => "dolphin-emu", 
+                 "dolphin" => "Dolphin.AppImage", 
                  _ => "emulator"
              }.to_string()
         }
