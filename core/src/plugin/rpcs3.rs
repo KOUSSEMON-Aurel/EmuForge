@@ -50,4 +50,12 @@ impl EmulatorPlugin for Rpcs3Plugin {
         let name = binary_path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_lowercase();
         name.contains("rpcs3")
     }
+
+    fn fullscreen_args(&self) -> Vec<String> {
+        vec![] // RPCS3 n'a pas de --fullscreen CLI direct
+    }
+
+    fn clone_with_path(&self, binary_path: PathBuf) -> Box<dyn EmulatorPlugin> {
+        Box::new(Rpcs3Plugin::new(Some(binary_path)))
+    }
 }

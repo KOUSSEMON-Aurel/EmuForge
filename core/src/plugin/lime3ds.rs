@@ -51,4 +51,8 @@ impl EmulatorPlugin for Lime3DSPlugin {
         let name = binary_path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_lowercase();
         name.contains("lime3ds") || name.contains("citra")
     }
+
+    fn clone_with_path(&self, binary_path: PathBuf) -> Box<dyn EmulatorPlugin> {
+        Box::new(Lime3DSPlugin::new(Some(binary_path)))
+    }
 }

@@ -86,5 +86,9 @@ impl EmulatorPlugin for PpssppPlugin {
         
         name.contains("ppsspp")
     }
+
+    fn clone_with_path(&self, binary_path: PathBuf) -> Box<dyn EmulatorPlugin> {
+        Box::new(PpssppPlugin::new(Some(binary_path)))
+    }
 }
 

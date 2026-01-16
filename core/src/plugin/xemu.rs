@@ -51,4 +51,12 @@ impl EmulatorPlugin for XemuPlugin {
         let name = binary_path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_lowercase();
         name.contains("xemu")
     }
+
+    fn fullscreen_args(&self) -> Vec<String> {
+        vec!["-full-screen".to_string()]
+    }
+
+    fn clone_with_path(&self, binary_path: PathBuf) -> Box<dyn EmulatorPlugin> {
+        Box::new(XemuPlugin::new(Some(binary_path)))
+    }
 }

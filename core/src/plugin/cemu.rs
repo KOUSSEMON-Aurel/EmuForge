@@ -54,4 +54,12 @@ impl EmulatorPlugin for CemuPlugin {
         let name = binary_path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_lowercase();
         name.contains("cemu")
     }
+
+    fn fullscreen_args(&self) -> Vec<String> {
+        vec!["-f".to_string()]
+    }
+
+    fn clone_with_path(&self, binary_path: PathBuf) -> Box<dyn EmulatorPlugin> {
+        Box::new(CemuPlugin::new(Some(binary_path)))
+    }
 }

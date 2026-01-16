@@ -55,4 +55,13 @@ impl EmulatorPlugin for DolphinPlugin {
         let name = binary_path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_lowercase();
         name.contains("dolphin")
     }
+
+    fn fullscreen_args(&self) -> Vec<String> {
+        // Dolphin n'a pas de --fullscreen CLI, il utilise --batch -e
+        vec![]
+    }
+
+    fn clone_with_path(&self, binary_path: PathBuf) -> Box<dyn EmulatorPlugin> {
+        Box::new(DolphinPlugin::new(Some(binary_path)))
+    }
 }

@@ -32,7 +32,14 @@ struct PortableConfig {
     emulator_filename: String,
     rom_filename: String,
     config_dir: String,
+    #[allow(dead_code)]
     fullscreen: bool,
+    #[serde(default)]
+    env_vars: Vec<(String, String)>,
+    #[serde(default)]
+    args_before_rom: Vec<String>,
+    #[serde(default)]
+    args_after_rom: Vec<String>,
 }
 
 fn main() {
@@ -137,23 +144,60 @@ fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
         }
     }
     
+    // Check for --clean argument
+    let args: Vec<String> = env::args().collect();
+    let clean_mode = args.contains(&"--clean".to_string());
+    
     // Launch the emulator
     let mut cmd = Command::new(&emulator_path);
     
-    // CRITICAL: Set HOME to the config directory to isolate the emulator
-    // This replicates the logic in our wrapper script and fixes the DuckStation error.
-    cmd.env("HOME", &config_path);
-    cmd.env("QT_QPA_PLATFORM", "xcb");
+    // Set working directory to the extraction folder to avoid polluting the user's current directory
+    // and ensure relative paths work as expected.
+    cmd.current_dir(&target_dir);
     
-    // DuckStation syntax: [flags] -- <file>
-    if config.fullscreen {
-        cmd.arg("-fullscreen");
+    // === GENERIC LAUNCH LOGIC (from plugin config) ===
+    
+    // Apply environment variables from config (with path substitution)
+    for (key, value) in &config.env_vars {
+        // Substitute {config_dir} placeholder with actual path
+        let resolved_value = value.replace("{config_dir}", &config_path.to_string_lossy());
+        
+        // Handle relative paths ONLY if they start with ./
+        // This prevents strings like "xcb" or "wayland" from being treated as paths
+        let final_value = if resolved_value.starts_with("./") {
+            target_dir.join(&resolved_value).to_string_lossy().to_string()
+        } else {
+            resolved_value
+        };
+        
+        eprintln!("🔧 ENV: {} = {}", key, final_value);
+        cmd.env(key, &final_value);
     }
-    cmd.arg("--");
+    
+    // Add args before ROM
+    for arg in &config.args_before_rom {
+        cmd.arg(arg);
+    }
+    
+    // Add ROM path
     cmd.arg(&rom_path);
+    
+    // Add args after ROM
+    for arg in &config.args_after_rom {
+        cmd.arg(arg);
+    }
     
     let mut child = cmd.spawn().expect("Failed to launch emulator");
     let _ = child.wait();
+    
+    if clean_mode {
+        eprintln!("🧹 Nettoyage du cache demandé...");
+        if let Err(e) = fs::remove_dir_all(&target_dir) {
+            eprintln!("❌ Erreur lors du nettoyage du cache: {}", e);
+        } else {
+            eprintln!("✅ Cache nettoyé avec succès: {:?}", target_dir);
+        }
+    }
 }
 
 /// Extract the embedded ZIP archive from the executable
@@ -207,6 +251,9 @@ fn extract_embedded_archive(exe_path: &PathBuf, target_dir: &PathBuf) -> io::Res
                         fs::create_dir_all(&p)?;
                     }
                 }
+                
+                eprintln!("📄 Extraction: {} ({} bytes)", out_file.name(), out_file.size());
+                
                 let mut outfile = File::create(&outpath)?;
                 io::copy(&mut out_file, &mut outfile)?;
                 

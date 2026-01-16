@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open } from '@tauri-apps/plugin-dialog';
+import { downloadDir, join } from '@tauri-apps/api/path';
 
 import { listen } from '@tauri-apps/api/event';
 import './App.css';
@@ -117,6 +118,7 @@ function App() {
   const [targetOs, setTargetOs] = useState('auto');
   const [fullscreen, setFullscreen] = useState(true);
   const [portableMode, setPortableMode] = useState(false);
+  const [outputDir, setOutputDir] = useState('output'); // Folder for generated files
 
   const [status, setStatus] = useState<string | null>(null);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -128,11 +130,28 @@ function App() {
   // Download State
   const [downloadingEmu, setDownloadingEmu] = useState<string | null>(null);
   const [installedEmulators, setInstalledEmulators] = useState<string[]>([]);
+  // Platform Detection State
+  const [detectedPlatform, setDetectedPlatform] = useState<string | null>(null);
 
   // Initialize theme
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  // Set default output directory to Downloads/EmuForge_Output to avoid dev-mode reloads
+  useEffect(() => {
+    const initDir = async () => {
+      try {
+        const docDir = await downloadDir();
+        const safeDir = await join(docDir, 'EmuForge_Output');
+        setOutputDir(safeDir);
+        console.log("Default Output Dir set to:", safeDir);
+      } catch (e) {
+        console.error("Failed to resolve download dir:", e);
+      }
+    };
+    initDir();
+  }, []);
 
   // Fetch installed list when modal opens
   useEffect(() => {
@@ -150,20 +169,50 @@ function App() {
   };
 
   // RECOMMENDATION ENGINE
-  const getRecommendedEmulator = () => {
-    if (!romPath) return null;
-    const ext = romPath.split('.').pop()?.toLowerCase();
+  // RECOMMENDATION ENGINE (Async Intelligent Detection)
+  useEffect(() => {
+    if (romPath) {
+      // 1. D'abord reset pour éviter de garder l'ancienne valeur
+      setDetectedPlatform(null);
 
-    // Map extension to emulator ID
-    switch (ext) {
-      case 'iso': return ['ppsspp', 'pcsx2', 'dolphin', 'xemu', 'rpcs3']; // Ambiguous, generic Recommendation?
-      case 'cso': return ['ppsspp'];
+      // 2. Appel au backend pour analyser le fichier
+      invoke('detect_platform', { path: romPath })
+        .then((platform) => {
+          console.log("Detected Platform:", platform);
+          setDetectedPlatform(platform as string);
+        })
+        .catch((e) => console.error("Detection failed:", e));
+    } else {
+      setDetectedPlatform(null);
+    }
+  }, [romPath]);
+
+  const getRecommendedEmulator = () => {
+    if (!detectedPlatform) return [];
+
+    switch (detectedPlatform) {
+      // Consoles Nintendo
+      case 'wii': return ['dolphin'];
+      case 'gamecube': return ['dolphin'];
+      case 'switch': return ['ryujinx'];
+      case 'wiiu': return ['cemu'];
+      case '3ds': return ['lime3ds'];
       case 'nds': return ['melonds'];
-      case '3ds': case 'cia': return ['lime3ds'];
-      case 'nsp': case 'xci': return ['ryujinx'];
-      case 'wua': case 'wud': return ['cemu'];
-      case 'gcm': case 'rvz': return ['dolphin'];
-      case 'gdi': case 'cdi': return ['redream'];
+
+      // Consoles Sony
+      case 'ps1': return ['duckstation']; // Meilleur choix, PCSX2 peut potentiellement jouer PS1 mais DuckStation est dédié
+      case 'ps2': return ['pcsx2'];
+      case 'ps3': return ['rpcs3']; // NOUVEAU
+      case 'ps4': return []; // Pas d'émulateur supporté pour l'instant
+      case 'psp': return ['ppsspp'];
+
+      // Consoles Microsoft
+      case 'xbox': return ['xemu'];
+
+      // Sega
+      case 'dreamcast': return ['redream'];
+
+      // Fallback si "unknown" mais extension connue (géré par analyzer.rs maintenant)
       default: return [];
     }
   };
@@ -183,12 +232,12 @@ function App() {
       if (!pathStr) return;
 
       setRomPath(pathStr);
-      if (!gameName) {
-        const filename = pathStr.split(/[\\/]/).pop();
-        if (filename) {
-          const name = filename.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
-          setGameName(name);
-        }
+      setRomPath(pathStr);
+      // Always update game name from filename when a new file is selected
+      const filename = pathStr.split(/[\\/]/).pop();
+      if (filename) {
+        const name = filename.replace(/\.[^/.]+$/, "").replace(/_/g, " ");
+        setGameName(name);
       }
       // Auto-open modal if emulator is empty? No, maybe intrusive.
     }
@@ -260,7 +309,7 @@ function App() {
         emulatorPath,
         romPath,
         biosPath: biosPath || null,
-        outputDir: 'output',
+        outputDir: outputDir,
         plugin: selectedPlugin,
         targetOs,
         fullscreen,

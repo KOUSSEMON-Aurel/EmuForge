@@ -1,3 +1,3 @@
 pub mod analyzer;
-pub use analyzer::{FileAnalyzer, FileType};
+pub use analyzer::{FileAnalyzer, FileType, Platform};
 

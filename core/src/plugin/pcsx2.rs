@@ -3,6 +3,96 @@ use crate::plugin::EmulatorPlugin;
 use anyhow::{Result, Context};
 use std::path::{Path, PathBuf};
 
+/// Configuration PCSX2 par défaut pour éviter le Setup Wizard
+const PCSX2_INI_CONTENT: &str = r#"[UI]
+SettingsVersion = 1
+SetupWizardIncomplete = false
+StartFullscreen = true
+HideMainWindowWhenRunning = true
+
+[GSWindow]
+AspectRatio = Stretch
+Zoom = 100.0
+IntegerScaling = false
+Stretch = true
+KeepAspect = false
+
+[EmuCore/GS]
+AspectRatio = Stretch
+FMVAspectRatioSwitch = Off
+
+[InputSources]
+SDL = true
+Keyboard = true
+
+[Folders]
+Bios = bios
+
+[EmuCore]
+EnableFastBoot = true
+EnableWideScreenPatches = true
+
+[Pad1]
+Type = DualShock2
+Deadzone = 0.15
+AxisScale = 1.33
+ButtonDeadzone = 0.25
+
+Up = Keyboard/Up
+Up = SDL-0/DPadUp
+Down = Keyboard/Down
+Down = SDL-0/DPadDown
+Left = Keyboard/Left
+Left = SDL-0/DPadLeft
+Right = Keyboard/Right
+Right = SDL-0/DPadRight
+
+Cross = Keyboard/Z
+Cross = SDL-0/A
+Circle = Keyboard/X
+Circle = SDL-0/B
+Square = Keyboard/C
+Square = SDL-0/X
+Triangle = Keyboard/V
+Triangle = SDL-0/Y
+
+L1 = Keyboard/Q
+L1 = SDL-0/LeftShoulder
+R1 = Keyboard/E
+R1 = SDL-0/RightShoulder
+L2 = Keyboard/1
+L2 = SDL-0/+LeftTrigger
+R2 = Keyboard/2
+R2 = SDL-0/+RightTrigger
+L3 = Keyboard/3
+L3 = SDL-0/LeftStick
+R3 = Keyboard/4
+R3 = SDL-0/RightStick
+
+Start = Keyboard/Return
+Start = SDL-0/Start
+Select = Keyboard/Backspace
+Select = SDL-0/Back
+
+LUp = Keyboard/W
+LUp = SDL-0/-LeftY
+LDown = Keyboard/S
+LDown = SDL-0/+LeftY
+LLeft = Keyboard/A
+LLeft = SDL-0/-LeftX
+LRight = Keyboard/D
+LRight = SDL-0/+LeftX
+
+RUp = Keyboard/I
+RUp = SDL-0/-RightY
+RDown = Keyboard/K
+RDown = SDL-0/+RightY
+RLeft = Keyboard/J
+RLeft = SDL-0/-RightX
+RRight = Keyboard/L
+RRight = SDL-0/+RightX
+"#;
+
 pub struct Pcsx2Plugin {
     pub custom_binary_path: Option<PathBuf>,
 }
@@ -56,122 +146,7 @@ impl EmulatorPlugin for Pcsx2Plugin {
         // The critical setting is SetupWizardIncomplete = false
         // We also need to point to the bios folder within our config structure
         // Include default keyboard bindings so the game responds to input
-        let ini_content = r#"[UI]
-SettingsVersion = 1
-SetupWizardIncomplete = false
-StartFullscreen = true
-HideMainWindowWhenRunning = true
-
-[GSWindow]
-AspectRatio = Stretch
-Zoom = 100.0
-IntegerScaling = false
-Stretch = true
-KeepAspect = false
-
-[EmuCore/GS]
-AspectRatio = Stretch
-FMVAspectRatioSwitch = Off
-
-[InputSources]
-SDL = true
-Keyboard = true
-
-[Folders]
-Bios = bios
-
-[EmuCore]
-EnableFastBoot = true
-EnableWideScreenPatches = true
-
-[Pad1]
-Type = DualShock2
-# Deadzone and sensitivity settings
-Deadzone = 0.15
-AxisScale = 1.33
-ButtonDeadzone = 0.25
-
-# ==============================
-# 🎮 D-Pad (Direction)
-# ==============================
-Up = Keyboard/Up
-Up = SDL-0/DPadUp
-Down = Keyboard/Down
-Down = SDL-0/DPadDown
-Left = Keyboard/Left
-Left = SDL-0/DPadLeft
-Right = Keyboard/Right
-Right = SDL-0/DPadRight
-
-# ==============================
-# 🔘 Boutons principaux (standard universel)
-# ==============================
-# Cross / X / A
-Cross = Keyboard/Z
-Cross = SDL-0/A
-# Circle / O / B
-Circle = Keyboard/X
-Circle = SDL-0/B
-# Square / □ / X
-Square = Keyboard/A
-Square = SDL-0/X
-# Triangle / △ / Y
-Triangle = Keyboard/S
-Triangle = SDL-0/Y
-
-# ==============================
-# 🎯 Gâchettes (Shoulders & Triggers)
-# ==============================
-L1 = Keyboard/Q
-L1 = SDL-0/LeftShoulder
-R1 = Keyboard/W
-R1 = SDL-0/RightShoulder
-L2 = Keyboard/1
-L2 = SDL-0/+LeftTrigger
-R2 = Keyboard/2
-R2 = SDL-0/+RightTrigger
-
-# ==============================
-# 🕹️ Clics de stick (L3/R3)
-# ==============================
-L3 = Keyboard/2
-L3 = SDL-0/LeftStick
-R3 = Keyboard/4
-R3 = SDL-0/RightStick
-
-# ==============================
-# ⏯️ Start / Select
-# ==============================
-Start = Keyboard/Return
-Start = SDL-0/Start
-Select = Keyboard/Backspace
-Select = SDL-0/Back
-
-# ==============================
-# 🕹️ Stick analogique gauche
-# ==============================
-LUp = Keyboard/W
-LUp = SDL-0/-LeftY
-LDown = Keyboard/S
-LDown = SDL-0/+LeftY
-LLeft = Keyboard/A
-LLeft = SDL-0/-LeftX
-LRight = Keyboard/D
-LRight = SDL-0/+LeftX
-
-# ==============================
-# 🕹️ Stick analogique droit
-# ==============================
-RUp = Keyboard/I
-RUp = SDL-0/-RightY
-RDown = Keyboard/K
-RDown = SDL-0/+RightY
-RLeft = Keyboard/J
-RLeft = SDL-0/-RightX
-RRight = Keyboard/L
-RRight = SDL-0/+RightX
-"#;
-        std::fs::write(&ini_path, ini_content).context("Failed to write PCSX2.ini")?;
+        std::fs::write(&ini_path, PCSX2_INI_CONTENT).context("Failed to write PCSX2.ini")?;
 
         // Note: SDL controller auto-mapping requires the PCSX2 Qt GUI to be used at least once.
         // Users will need to open PCSX2 normally and use "Automatic Mapping" for gamepads.
@@ -218,5 +193,77 @@ RRight = SDL-0/+RightX
     fn can_handle(&self, binary_path: &Path) -> bool {
         let name = binary_path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_lowercase();
         name.contains("pcsx2")
+    }
+
+    fn fullscreen_args(&self) -> Vec<String> {
+        // Déjà inclus dans prepare_launch_config (-fullscreen)
+        vec![]
+    }
+
+    fn setup_environment(&self, output_dir: &Path, bios_path: Option<&Path>) -> Result<()> {
+        // PCSX2 utilise PCSX2_USER_PATH, créer la structure complète
+        let pcsx2_base = output_dir.join("pcsx2_data").join("PCSX2");
+        
+        // Créer dossier bios
+        let bios_dest_dir = pcsx2_base.join("bios");
+        std::fs::create_dir_all(&bios_dest_dir)
+            .context("Failed to create BIOS directory")?;
+        
+        // Copier le BIOS si fourni
+        if let Some(bios) = bios_path {
+            eprintln!("🔍 BIOS fourni: {:?}", bios);
+            eprintln!("🔍 BIOS exists: {}", bios.exists());
+            if bios.exists() {
+                let bios_filename = bios.file_name()
+                    .ok_or_else(|| anyhow::anyhow!("Invalid BIOS path"))?;
+                let bios_dest = bios_dest_dir.join(bios_filename);
+                eprintln!("📂 Copie vers: {:?}", bios_dest);
+                
+                std::fs::copy(bios, &bios_dest)
+                    .context("Failed to copy BIOS file")?;
+                eprintln!("✅ BIOS copié avec succès!");
+            } else {
+                eprintln!("⚠️ BIOS n'existe pas, copie ignorée");
+            }
+        } else {
+            eprintln!("⚠️ Aucun BIOS fourni");
+        }
+        
+        // Créer dossier inis et le fichier PCSX2.ini
+        let inis_dir = pcsx2_base.join("inis");
+        std::fs::create_dir_all(&inis_dir)
+            .context("Failed to create inis directory")?;
+        
+        let ini_path = inis_dir.join("PCSX2.ini");
+        let ini_content = PCSX2_INI_CONTENT;
+        std::fs::write(&ini_path, ini_content)
+            .context("Failed to write PCSX2.ini")?;
+        
+        Ok(())
+    }
+
+    fn clone_with_path(&self, binary_path: PathBuf) -> Box<dyn EmulatorPlugin> {
+        Box::new(Pcsx2Plugin::new(Some(binary_path)))
+    }
+
+    fn portable_env_vars(&self, config_dir: &Path) -> Vec<(String, String)> {
+        // PCSX2 AppImage utilise souvent XDG_CONFIG_HOME
+        // Structure attendue: $XDG_CONFIG_HOME/PCSX2/inis/PCSX2.ini
+        // Notre config_dir est "pcsx2_data", qui contient le dossier "PCSX2".
+        vec![
+            ("XDG_CONFIG_HOME".to_string(), config_dir.to_string_lossy().to_string()),
+            // On garde aussi l'autre variable au cas où, pointant aussi vers la racine de config
+            ("PCSX2_USER_PATH".to_string(), config_dir.to_string_lossy().to_string()),
+        ]
+    }
+
+    fn portable_launch_args(&self, fullscreen: bool) -> (Vec<String>, Vec<String>) {
+        // PCSX2 syntax: [flags] [rom] (flags AVANT la ROM)
+        let before = if fullscreen { 
+            vec!["-fullscreen".to_string()] 
+        } else { 
+            vec![] 
+        };
+        (before, vec![])
     }
 }

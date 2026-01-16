@@ -15,509 +15,7 @@ struct AppState {
     output_dir: Mutex<PathBuf>,
 }
 
-const DUCKSTATION_SETTINGS: &str = r#"[Main]
-SettingsVersion = 3
-EmulationSpeed = 1
-FastForwardSpeed = 0
-TurboSpeed = 0
-SyncToHostRefreshRate = false
-InhibitScreensaver = true
-PauseOnFocusLoss = false
-PauseOnControllerDisconnection = false
-SaveStateOnExit = true
-CreateSaveStateBackups = true
-SaveStateCompression = ZstDefault
-ConfirmPowerOff = true
-EnableDiscordPresence = false
-LoadDevicesFromSaveStates = false
-DisableAllEnhancements = false
-RewindEnable = false
-RewindFrequency = 10
-RewindSaveSlots = 10
-RunaheadFrameCount = 0
-RunaheadForAnalogInput = false
-StartPaused = false
-StartFullscreen = true
-SetupWizardIncomplete = false
-
-[Console]
-Region = Auto
-Enable8MBRAM = false
-
-[CPU]
-ExecutionMode = Recompiler
-OverclockEnable = false
-OverclockNumerator = 1
-OverclockDenominator = 1
-RecompilerMemoryExceptions = false
-RecompilerBlockLinking = true
-RecompilerICache = false
-FastmemMode = MMap
-
-[GPU]
-Renderer = Automatic
-Adapter = 
-ResolutionScale = 0
-Multisamples = 1
-UseDebugDevice = false
-UseGPUBasedValidation = false
-PreferGLESContext = false
-DisableShaderCache = false
-DisableDualSourceBlend = false
-DisableFramebufferFetch = false
-DisableTextureBuffers = false
-DisableTextureCopyToSelf = false
-DisableMemoryImport = false
-DisableRasterOrderViews = false
-DisableComputeShaders = false
-DisableCompressedTextures = false
-PerSampleShading = false
-MaxQueuedFrames = 2
-UseThread = true
-UseSoftwareRendererForReadbacks = false
-UseSoftwareRendererForMemoryStates = false
-ScaledInterlacing = true
-ForceRoundTextureCoordinates = false
-TextureFilter = Nearest
-SpriteTextureFilter = Nearest
-DitheringMode = TrueColor
-LineDetectMode = Disabled
-DownsampleMode = Disabled
-DownsampleScale = 1
-WireframeMode = Disabled
-ForceVideoTiming = Disabled
-WidescreenHack = false
-EnableTextureCache = false
-ChromaSmoothing24Bit = false
-PGXPEnable = true
-PGXPCulling = true
-PGXPTextureCorrection = true
-PGXPColorCorrection = false
-PGXPVertexCache = false
-PGXPCPU = false
-PGXPPreserveProjFP = false
-PGXPTolerance = -1
-PGXPDepthBuffer = false
-PGXPDisableOn2DPolygons = false
-PGXPTransparentDepthTest = false
-PGXPDepthThreshold = 4096
-DumpFastReplayMode = false
-DeinterlacingMode = Progressive
-
-[Debug]
-ShowVRAM = false
-DumpCPUToVRAMCopies = false
-DumpVRAMToCPUCopies = false
-EnableGDBServer = false
-GDBServerPort = 2345
-
-[Display]
-CropMode = Overscan
-ActiveStartOffset = 0
-ActiveEndOffset = 0
-LineStartOffset = 0
-LineEndOffset = 0
-Force4_3For24Bit = false
-AspectRatio = Stretch To Fill
-FineCropMode = None
-FineCropLeft = 0
-FineCropTop = 0
-FineCropRight = 0
-FineCropBottom = 0
-Alignment = Center
-Rotation = Normal
-Scaling = BilinearSmooth
-Scaling24Bit = BilinearSmooth
-OptimalFramePacing = false
-PreFrameSleep = false
-SkipPresentingDuplicateFrames = false
-PreFrameSleepBuffer = 2
-VSync = false
-DisableMailboxPresentation = false
-ExclusiveFullscreenControl = Automatic
-ScreenshotMode = ScreenResolution
-ScreenshotFormat = PNG
-ScreenshotQuality = 85
-ShowOSDMessages = true
-ShowFPS = false
-ShowSpeed = false
-ShowResolution = false
-ShowLatencyStatistics = false
-ShowGPUStatistics = false
-ShowCPU = false
-ShowGPU = false
-ShowFrameTimes = false
-ShowStatusIndicators = true
-ShowInputs = false
-ShowEnhancements = false
-OSDScale = 100
-OSDMargin = 10
-OSDErrorDuration = 15
-OSDWarningDuration = 10
-OSDInfoDuration = 5
-OSDQuickDuration = 2.5
-OSDPersistentDuration = 3.40282e+38
-AutoResizeWindow = false
-
-[CDROM]
-ReadaheadSectors = 8
-MechaconVersion = VC1A
-RegionCheck = false
-SubQSkew = false
-LoadImageToRAM = false
-LoadImagePatches = false
-IgnoreHostSubcode = false
-MuteCDAudio = false
-AutoDiscChange = false
-ReadSpeedup = 1
-SeekSpeedup = 1
-MaxReadSpeedupCycles = 30000
-MaxSeekSpeedupCycles = 30000
-DisableSpeedupOnMDEC = false
-
-[Audio]
-Backend = Cubeb
-Driver = 
-OutputDevice = 
-StretchMode = TimeStretch
-BufferMS = 50
-OutputLatencyMS = 20
-OutputLatencyMinimal = false
-StretchSequenceLengthMS = 30
-StretchSeekWindowMS = 20
-StretchOverlapMS = 10
-StretchUseQuickSeek = false
-StretchUseAAFilter = false
-OutputVolume = 100
-FastForwardVolume = 100
-OutputMuted = false
-
-[Hacks]
-UseOldMDECRoutines = false
-ExportSharedMemory = false
-DMAMaxSliceTicks = 1000
-DMAHaltTicks = 100
-GPUFIFOSize = 16
-GPUMaxRunAhead = 128
-
-[BIOS]
-TTYLogging = false
-PatchFastBoot = false
-FastForwardBoot = false
-SearchDirectory = bios
-
-[MemoryCards]
-Card1Type = PerGameTitle
-Card2Type = None
-UsePlaylistTitle = true
-FastForwardAccess = false
-Directory = memcards
-
-[ControllerPorts]
-MultitapMode = Disabled
-PointerXScale = 8
-PointerYScale = 8
-PointerXInvert = false
-PointerYInvert = false
-
-[Cheevos]
-Enabled = false
-ChallengeMode = false
-EncoreMode = false
-SpectatorMode = false
-UnofficialTestMode = false
-UseRAIntegration = false
-Notifications = true
-LeaderboardNotifications = true
-LeaderboardTrackers = true
-SoundEffects = true
-ProgressIndicators = true
-ChallengeIndicatorMode = Notification
-NotificationsDuration = 5
-LeaderboardsDuration = 10
-
-[TextureReplacements]
-EnableTextureReplacements = false
-EnableVRAMWriteReplacements = false
-AlwaysTrackUploads = false
-PreloadTextures = false
-DumpVRAMWrites = false
-DumpTextures = false
-DumpReplacedTextures = true
-DumpTexturePages = false
-DumpFullTexturePages = false
-DumpTextureForceAlphaChannel = false
-DumpVRAMWriteForceAlphaChannel = true
-DumpC16Textures = false
-ReducePaletteRange = true
-ConvertCopiesToWrites = false
-ReplacementScaleLinearFilter = false
-MaxHashCacheEntries = 1200
-MaxHashCacheVRAMUsageMB = 2048
-MaxReplacementCacheVRAMUsage = 512
-MaxVRAMWriteSplits = 0
-MaxVRAMWriteCoalesceWidth = 0
-DumpTextureWidthThreshold = 16
-DumpTextureHeightThreshold = 16
-DumpVRAMWriteWidthThreshold = 128
-DumpVRAMWriteHeightThreshold = 128
-
-[PIO]
-DeviceType = None
-FlashImagePath = 
-FlashImageWriteEnable = false
-SwitchActive = true
-
-[SIO]
-RedirectToTTY = false
-
-[PCDrv]
-Enabled = false
-EnableWrites = false
-Root = 
-
-[Logging]
-LogLevel = Info
-LogTimestamps = true
-LogToConsole = false
-LogToDebug = false
-LogToWindow = false
-LogToFile = false
-LogFileTimestamps = false
-Achievements = true
-AudioStream = true
-BIOS = true
-Bus = true
-CDImage = true
-CDROM = true
-CDROMAsyncReader = true
-CPU = true
-Cheats = true
-CodeCache = true
-CompressHelpers = true
-Controller = true
-CubebAudioStream = true
-CueParser = true
-DInputSource = true
-DMA = true
-DynamicLibrary = true
-FileLoader = true
-FileSystem = true
-FullscreenUI = true
-GDBServer = true
-GPU = true
-GPUDevice = true
-GPUDump = true
-GPUThread = true
-GPU_SW = true
-GPU_HW = true
-GameDatabase = true
-GameList = true
-HTTPDownloader = true
-Host = true
-ImGuiManager = true
-Image = true
-InputManager = true
-InterruptController = true
-Log = true
-MDEC = true
-MediaCapture = true
-MemMap = true
-MemoryCard = true
-Multitap = true
-PCDrv = true
-Pad = true
-PerfMon = true
-PlatformMisc = true
-PostProcessing = true
-ProgressCallback = true
-PIO = true
-ReShadeFXShader = true
-Recompiler = true
-SDL = true
-SIO = true
-SPU = true
-Settings = true
-ShaderGen = true
-Sockets = true
-StateWrapper = true
-System = true
-TTY = true
-Threading = true
-Timers = true
-TimingEvents = true
-Ungrouped = true
-Win32RawInputSource = true
-WindowInfo = true
-XInputSource = true
-
-[MediaCapture]
-Backend = FFmpeg
-Container = mp4
-VideoCapture = true
-VideoWidth = 640
-VideoHeight = 480
-VideoAutoSize = false
-VideoBitrate = 6000
-VideoCodec = 
-VideoCodecUseArgs = false
-AudioCodecArgs = 
-AudioCapture = true
-AudioBitrate = 128
-AudioCodec = 
-AudioCodecUseArgs = false
-
-[Folders]
-Cache = cache
-Cheats = cheats
-Covers = covers
-GameIcons = gameicons
-GameSettings = gamesettings
-InputProfiles = inputprofiles
-Patches = patches
-SaveStates = savestates
-Screenshots = screenshots
-Shaders = shaders
-Subchannels = subchannels
-Textures = textures
-UserResources = resources
-Videos = videos
-
-[InputSources]
-SDL = true
-SDLControllerEnhancedMode = false
-SDLPS5PlayerLED = false
-XInput = false
-RawInput = false
-
-[Pad1]
-Type = AnalogController
-Up = Keyboard/UpArrow
-Up = SDL-0/DPadUp
-Right = Keyboard/RightArrow
-Right = SDL-0/DPadRight
-Down = Keyboard/DownArrow
-Down = SDL-0/DPadDown
-Left = Keyboard/LeftArrow
-Left = SDL-0/DPadLeft
-Triangle = Keyboard/I
-Triangle = SDL-0/Y
-Circle = Keyboard/L
-Circle = SDL-0/B
-Cross = Keyboard/K
-Cross = SDL-0/A
-Square = Keyboard/J
-Square = SDL-0/X
-Select = Keyboard/Backspace
-Select = SDL-0/Back
-Start = Keyboard/Enter
-Start = SDL-0/Start
-L1 = Keyboard/Q
-L1 = SDL-0/LeftShoulder
-R1 = Keyboard/E
-R1 = SDL-0/RightShoulder
-L2 = Keyboard/1
-L2 = SDL-0/+LeftTrigger
-R2 = Keyboard/3
-R2 = SDL-0/+RightTrigger
-L3 = Keyboard/2
-L3 = SDL-0/LeftStick
-R3 = Keyboard/4
-R3 = SDL-0/RightStick
-LLeft = Keyboard/A
-LLeft = SDL-0/-LeftX
-LRight = Keyboard/D
-LRight = SDL-0/+LeftX
-LDown = Keyboard/S
-LDown = SDL-0/+LeftY
-LUp = Keyboard/W
-LUp = SDL-0/-LeftY
-RLeft = Keyboard/F
-RLeft = SDL-0/-RightX
-RRight = Keyboard/H
-RRight = SDL-0/+RightX
-RDown = Keyboard/G
-RDown = SDL-0/+RightY
-RUp = Keyboard/T
-RUp = SDL-0/-RightY
-Analog = SDL-0/Guide
-LargeMotor = SDL-0/LargeMotor
-SmallMotor = SDL-0/SmallMotor
-
-[Pad2]
-Type = AnalogController
-Up = SDL-1/DPadUp
-Right = SDL-1/DPadRight
-Down = SDL-1/DPadDown
-Left = SDL-1/DPadLeft
-Triangle = SDL-1/Y
-Circle = SDL-1/B
-Cross = SDL-1/A
-Square = SDL-1/X
-Select = SDL-1/Back
-Start = SDL-1/Start
-L1 = SDL-1/LeftShoulder
-R1 = SDL-1/RightShoulder
-L2 = SDL-1/+LeftTrigger
-R2 = SDL-1/+RightTrigger
-L3 = SDL-1/LeftStick
-R3 = SDL-1/RightStick
-LLeft = SDL-1/-LeftX
-LRight = SDL-1/+LeftX
-LDown = SDL-1/+LeftY
-LUp = SDL-1/-LeftY
-RLeft = SDL-1/-RightX
-RRight = SDL-1/+RightX
-RDown = SDL-1/+RightY
-RUp = SDL-1/-RightY
-Analog = SDL-1/Guide
-LargeMotor = SDL-1/LargeMotor
-SmallMotor = SDL-1/SmallMotor
-
-[Pad3]
-Type = None
-
-[Pad4]
-Type = None
-
-[Pad5]
-Type = None
-
-[Pad6]
-Type = None
-
-[Pad7]
-Type = None
-
-[Pad8]
-Type = None
-
-[Hotkeys]
-FastForward = Keyboard/Tab
-TogglePause = Keyboard/Space
-Screenshot = Keyboard/F10
-ToggleFullscreen = Keyboard/F11
-OpenPauseMenu = Keyboard/Escape
-LoadSelectedSaveState = Keyboard/F1
-SaveSelectedSaveState = Keyboard/F2
-SelectPreviousSaveStateSlot = Keyboard/F3
-SelectNextSaveStateSlot = Keyboard/F4
-
-[UI]
-MainWindowX = 13
-MainWindowY = 13
-MainWindowWidth = 934
-MainWindowHeight = 514
-ShowGameList = false
-ShowStartWizard = false
-SetupWizardIncomplete = false
-
-[AutoUpdater]
-CheckAtStartup = false
-
-[GameList]
-RecursivePaths = {{EXE_DIR}}
-"#;
+// Note: DUCKSTATION_SETTINGS a été déplacé dans core/src/plugin/duckstation.rs
 
 #[tauri::command]
 async fn forge_executable(
@@ -561,43 +59,20 @@ async fn forge_executable(
         }, "generic".to_string())
     };
 
-    // === BIOS HANDLING FOR PCSX2 ===
-    // PCSX2 requires BIOS files to be in a specific folder structure.
-    // The plugin creates output_dir/pcsx2_data/PCSX2/bios/, so we copy the user's BIOS there.
-    if driver_id == "pcsx2" {
-        if let Some(bios_src) = &bios_path {
-            let bios_src_path = PathBuf::from(bios_src);
-            if bios_src_path.exists() {
-                // BIOS must go in pcsx2_data/PCSX2/bios/ to match XDG_CONFIG_HOME structure
-                let bios_dest_dir = PathBuf::from(&output_dir).join("pcsx2_data").join("PCSX2").join("bios");
-                std::fs::create_dir_all(&bios_dest_dir)
-                    .map_err(|e| format!("Failed to create bios directory: {}", e))?;
-                
-                // Copy the BIOS file with its original name
-                let bios_filename = bios_src_path.file_name()
-                    .ok_or_else(|| "Invalid BIOS path".to_string())?;
-                let bios_dest = bios_dest_dir.join(bios_filename);
-                
-                std::fs::copy(&bios_src_path, &bios_dest)
-                    .map_err(|e| format!("Failed to copy BIOS file: {}", e))?;
-            }
-        }
-    }
+    // === UTILISATION DES NOUVELLES MÉTHODES DU TRAIT ===
+    let out_path = PathBuf::from(&output_dir);
 
-    // Apply generic full screen override if requested
-    // NOTE: PCSX2 already has -fullscreen in its plugin args, so we skip it here
+    // 1. Setup environment moved to specific branches to avoid polluting output dir in portable mode
+    // if let Some(plugin) = &maybe_plugin { ... } moved below
+
+    // 2. Fullscreen args via le plugin
     if fullscreen {
-        match driver_id.as_str() {
-            "ppsspp" | "ryujinx" => {
-                 config.args.push("--fullscreen".to_string());
-            },
-            "cemu" => {
-                 config.args.push("-f".to_string());
-            },
-            "generic" => {
-                 config.args.push("--fullscreen".to_string());
-            },
-            _ => { /* PCSX2 and others already configured by plugin */ }
+        if let Some(plugin) = &maybe_plugin {
+            for arg in plugin.fullscreen_args() {
+                config.args.push(arg);
+            }
+        } else {
+            config.args.push("--fullscreen".to_string());
         }
     }
 
@@ -609,24 +84,14 @@ async fn forge_executable(
             emu_p,
             rom_p,
             bios_path.map(PathBuf::from),
-            PathBuf::from(&output_dir),
+            out_path,
             driver_id,
             fullscreen,
         );
     }
 
-
-    // Calculate stub path relative to the current working directory or binary location
-    // In dev mode, we assume we run from the project root or we find it in ../stub
-    // Note: In a real app we might want to bundle the stub binary as a resource.
-    // For this MVP, we look for the stub crate in known locations
-    
-    let possible_paths = vec![
-        "../../stub",
-        "../stub",
-        "stub" 
-    ];
-    
+    // Calculate stub path
+    let possible_paths = vec!["../../stub", "../stub", "stub"];
     let mut stub_crate_path = PathBuf::new();
     let mut found = false;
     
@@ -644,109 +109,28 @@ async fn forge_executable(
         return Err("Could not find stub crate directory".to_string());
     }
 
-    let out_path = PathBuf::from(output_dir);
+    // NOUVEAU: Setup environment pour le mode NON-PORTABLE (Raccourci)
+    // Ici, on VEUT que la structure persiste dans le dossier de sortie pour que le jeu fonctionne.
+    if let Some(plugin) = &maybe_plugin {
+        let bios_p = bios_path.as_ref().map(|s| Path::new(s.as_str()));
+        plugin.setup_environment(&out_path, bios_p)
+            .map_err(|e| format!("Plugin setup error: {}", e))?;
+    }
 
     let forge = ExecutableForge::new(stub_crate_path, out_path.clone());
 
-    // Generic Fullscreen Logic handled above...
-
-    // DUCKSTATION RADICAL SOLUTION:
-   // DuckStation AppImage is STUBBORN and ignores XDG vars.
-    // We'll create a launch wrapper script that:
-    // 1. Backs up ~/.local/share/duckstation
-    // 2. Symlinks our local config there
-    // 3. Launches DuckStation
-    // 4. Restores original config
-    
-    if driver_id == "duckstation" {
-         // NEW STRATEGY: Directly create the .duckstation_home structure
-         // mirroring the Linux HOME layout.
-         // output/
-         //   .duckstation_home/
-         //     .local/share/duckstation/
-         //       settings.ini
-         //       bios/
-         
-        let fake_home = out_path.join(".duckstation_home");
-        let ds_data_dir = fake_home.join(".local/share/duckstation");
-        std::fs::create_dir_all(&ds_data_dir).ok();
-        
-        // USE THE VALIDATED TEMPLATE (Hardcoded for reliability as requested)
-        // Updated with user's verified config from Desktop backup
-        std::fs::write(ds_data_dir.join("settings.ini"), DUCKSTATION_SETTINGS).ok();
-        
-        // Copy BIOS to .duckstation_home/.local/share/duckstation/bios
-        if let Some(bios_p) = bios_path {
-            let bios_dest_dir = ds_data_dir.join("bios");
-            std::fs::create_dir_all(&bios_dest_dir).ok();
-            
-            // Copy the file
-            if let Some(fname) = Path::new(&bios_p).file_name() {
-                 std::fs::copy(&bios_p, bios_dest_dir.join(fname)).ok();
+    // 3. Generate wrapper script si nécessaire (ex: DuckStation)
+    if let Some(plugin) = &maybe_plugin {
+        if plugin.requires_wrapper() {
+            if let Some(wrapper_path) = plugin.generate_wrapper_script(&config, &out_path, &game_name)
+                .map_err(|e| format!("Wrapper error: {}", e))? {
+                // Modifier la config pour utiliser le wrapper
+                config.emulator_path = wrapper_path;
+                config.args.clear();
+                config.rom_path = PathBuf::from("");
             }
         }
-
-        
-        // DUCKSTATION "EXPORT HOME" STRATEGY (SIMPLIFIED):
-        // The structure is already there. We just export HOME.
-        
-        // Create wrapper script
-        let wrapper_script = format!(r#"#!/bin/bash
-# Get directory where this script is located
-SCRIPT_DIR="$( cd "$( dirname "${{BASH_SOURCE[0]}}" )" && pwd )"
-
-# Paths
-# Original Emulator Path (Absolute path from build time)
-BUILD_TIME_PATH="{}"
-
-# Smart Detection:
-# 1. Check if emulator exists locally (Portable Mode / Bundled)
-EMU_FILENAME=$(basename "$BUILD_TIME_PATH")
-LOCAL_EMU="$SCRIPT_DIR/$EMU_FILENAME"
-
-if [ -f "$LOCAL_EMU" ]; then
-    REAL_EMULATOR="$LOCAL_EMU"
-else
-    # 2. Fallback to system path (Non-Portable / Launcher Mode)
-    REAL_EMULATOR="$BUILD_TIME_PATH"
-fi
-
-# Set Persistant Fake Home
-FAKE_HOME="$SCRIPT_DIR/.duckstation_home"
-
-# 3. Launch with Modified HOME
-# This isolates DuckStation completely.
-export HOME="$FAKE_HOME"
-export QT_QPA_PLATFORM=xcb
-
-# Launch!
-"$REAL_EMULATOR" -fullscreen -- "{}"
-"#, config.emulator_path.display(), config.rom_path.display());
-        
-        // Use absolute path for wrapper
-        let wrapper_path = out_path.join(&format!("{}_duckstation_wrapper.sh", game_name));
-        std::fs::write(&wrapper_path, wrapper_script).ok();
-        
-        // Make wrapper executable
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            if let Ok(meta) = std::fs::metadata(&wrapper_path) {
-                let mut perms = meta.permissions();
-                perms.set_mode(0o755);
-                std::fs::set_permissions(&wrapper_path, perms).ok();
-            }
-        }
-        
-        // Modify config to use wrapper
-        let wrapper_path_absolute = wrapper_path.canonicalize()
-            .unwrap_or_else(|_| out_path.join(&wrapper_path)); // Best effort if not created yet
-        
-        config.emulator_path = wrapper_path_absolute;
-        config.args.clear();
-        config.rom_path = PathBuf::from(""); 
     }
-
 
     match forge.forge(&game_name, &config) {
         Ok(path) => Ok(path.to_string_lossy().to_string()),
@@ -768,11 +152,34 @@ fn forge_portable_executable(
     use std::fs::File;
     use zip::write::SimpleFileOptions;
     use zip::ZipWriter;
+    use emuforge_core::plugin::manager::PluginManager;
     
+    // Create output directory for the FINAL file
     std::fs::create_dir_all(&output_dir)
         .map_err(|e| format!("Failed to create output directory: {}", e))?;
-    let output_dir = output_dir.canonicalize()
+    let output_dir_canonical = output_dir.canonicalize()
         .map_err(|e| format!("Failed to canonicalize output directory: {}", e))?;
+
+    // Use SYSTEM TEMP directory for assembly to avoid triggering Tauri watcher
+    let temp_work_dir = std::env::temp_dir().join(format!("emuforge_build_{}", uuid::Uuid::new_v4()));
+    std::fs::create_dir_all(&temp_work_dir)
+        .map_err(|e| format!("Failed to create temp work dir: {}", e))?;
+
+    println!("🛠️  Build temporaire dans: {:?}", temp_work_dir);
+
+    // Appeler setup_environment via le plugin DANS LE TEMP DIR
+    let manager = PluginManager::new();
+    let plugin_opt = manager.configured_driver_for(&emulator_path);
+    if let Some(plugin) = &plugin_opt {
+        println!("🔌 Plugin détecté: {}", plugin.id());
+        let bios_p = bios_path.as_ref().map(|p| p.as_path());
+        println!("📀 BIOS path fourni: {:?}", bios_p);
+        plugin.setup_environment(&temp_work_dir, bios_p)
+            .map_err(|e| format!("Plugin setup error: {}", e))?;
+        println!("✅ setup_environment terminé");
+    } else {
+        println!("⚠️ Aucun plugin détecté pour: {:?}", emulator_path);
+    }
     
     // Step 1: Find and compile the stub
     let possible_paths = vec!["../../stub", "../stub", "stub"];
@@ -789,10 +196,12 @@ fn forge_portable_executable(
     
     let stub_crate = stub_crate_path.ok_or("Could not find stub crate directory")?;
     
+    
     // Compile the stub (we need a simple dummy config for now)
-    let temp_config_dir = output_dir.join(".temp_portable");
-    std::fs::create_dir_all(&temp_config_dir)
-        .map_err(|e| format!("Failed to create temp dir: {}", e))?;
+    // let temp_config_dir = output_dir.join(".temp_portable"); // REMOVED
+    let temp_config_dir = temp_work_dir.clone(); // Use the main temp dir
+    // std::fs::create_dir_all(&temp_config_dir) // Already created
+    //     .map_err(|e| format!("Failed to create temp dir: {}", e))?;
     
     let temp_config_path = temp_config_dir.join("config.json");
     // Write a dummy config - the stub will detect portable mode and ignore this
@@ -827,7 +236,7 @@ fn forge_portable_executable(
     };
     
     // Step 2: Create ZIP archive with all files
-    let zip_path = temp_config_dir.join("data.zip");
+    let zip_path = temp_work_dir.join("data.zip"); // ZIP in temp dir
     let zip_file = File::create(&zip_path)
         .map_err(|e| format!("Failed to create ZIP file: {}", e))?;
     let mut zip = ZipWriter::new(zip_file);
@@ -851,7 +260,15 @@ fn forge_portable_executable(
         .ok_or("Invalid ROM path")?
         .to_string_lossy()
         .to_string();
+    println!("💿 Ajout ROM au ZIP: {} (source: {:?})", rom_filename, rom_path);
+    if let Ok(metadata) = std::fs::metadata(&rom_path) {
+        println!("   📦 Taille: {} bytes", metadata.len());
+    } else {
+        println!("   ⚠️ Impossible de lire les métadonnées de la ROM");
+    }
+    
     add_file_to_zip(&app, &mut zip, &rom_path, &rom_filename, rom_options)?;
+    println!("✅ ROM ajoutée");
 
     // Handle CUE files dependencies (.bin files)
     if let Some(ext) = rom_path.extension() {
@@ -885,7 +302,7 @@ fn forge_portable_executable(
     // DuckStation: Create .duckstation_home structure BEFORE handling BIOS
     // This will be added to the ZIP and extracted next to the executable
     if driver_id == "duckstation" {
-        let duckstation_home = output_dir.join(".duckstation_home");
+        let duckstation_home = temp_work_dir.join(".duckstation_home");
         let ds_data_dir = duckstation_home.join(".local/share/duckstation");
         std::fs::create_dir_all(&ds_data_dir)
             .map_err(|e| format!("Failed to create DuckStation data dir: {}", e))?;
@@ -908,9 +325,9 @@ fn forge_portable_executable(
             
             // Construct destination path based on emulator type
             let bios_dest_dir = if driver_id == "duckstation" {
-                output_dir.join(".duckstation_home/.local/share/duckstation/bios")
+                temp_work_dir.join(".duckstation_home/.local/share/duckstation/bios")
             } else {
-                output_dir.join("pcsx2_data/PCSX2/bios")
+                temp_work_dir.join("pcsx2_data/PCSX2/bios")
             };
             std::fs::create_dir_all(&bios_dest_dir)
                 .map_err(|e| format!("Failed to create BIOS dir: {}", e))?;
@@ -922,41 +339,64 @@ fn forge_portable_executable(
     }
     
     // Add PCSX2 config if exists
-    let pcsx2_config_dir = output_dir.join("pcsx2_data");
+    let pcsx2_config_dir = temp_work_dir.join("pcsx2_data");
+    println!("📂 Vérification pcsx2_data: {:?} exists={}", pcsx2_config_dir, pcsx2_config_dir.exists());
     if driver_id == "pcsx2" && pcsx2_config_dir.exists() {
+        // List contents for debug
+        if let Ok(entries) = std::fs::read_dir(&pcsx2_config_dir) {
+            for entry in entries {
+                if let Ok(e) = entry {
+                    println!("   📄 {:?}", e.path());
+                }
+            }
+        }
         add_directory_to_zip(&app, &mut zip, &pcsx2_config_dir, "pcsx2_data", options)?;
+        println!("✅ pcsx2_data ajouté au ZIP");
+    } else {
+        println!("⚠️ pcsx2_data NON ajouté - driver_id={} exists={}", driver_id, pcsx2_config_dir.exists());
     }
 
-    // DuckStation: Write complete settings.ini and add .duckstation_home to ZIP
+    // DuckStation: Add .duckstation_home to ZIP (setup_environment a déjà créé le contenu)
     if driver_id == "duckstation" {
-        let duckstation_home = output_dir.join(".duckstation_home");
-        let ds_data_dir = duckstation_home.join(".local/share/duckstation");
-        
-        // Ensure settings.ini is written with the complete template
-        std::fs::write(ds_data_dir.join("settings.ini"), DUCKSTATION_SETTINGS)
-            .map_err(|e| format!("Failed to write settings.ini: {}", e))?;
-        
-        // Add entire .duckstation_home structure to ZIP
-        add_directory_to_zip(&app, &mut zip, &duckstation_home, ".duckstation_home", options)?;
+        let duckstation_home = temp_work_dir.join(".duckstation_home");
+        if duckstation_home.exists() {
+            add_directory_to_zip(&app, &mut zip, &duckstation_home, ".duckstation_home", options)?;
+        }
     }
     
     zip.finish().map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
     
     // Step 3: Create the portable config JSON
-    let config_dir_name = if driver_id == "duckstation" { ".duckstation_home" } else { "pcsx2_data" };
+    // Récupérer les env_vars et args depuis le plugin
+    let config_dir_name = if driver_id == "duckstation" { "./.duckstation_home" } else { "./pcsx2_data" };
+    
+    // Obtenir les configurations de lancement depuis le plugin
+    let (env_vars_list, args_before, args_after) = if let Some(plugin) = manager.configured_driver_for(&emulator_path) {
+        let config_path = PathBuf::from(config_dir_name);
+        let env_vars = plugin.portable_env_vars(&config_path);
+        let (before, after) = plugin.portable_launch_args(fullscreen);
+        (env_vars, before, after)
+    } else {
+        // Fallback générique
+        let before = if fullscreen { vec!["--fullscreen".to_string()] } else { vec![] };
+        (vec![], before, vec![])
+    };
     
     let portable_config = serde_json::json!({
         "game_name": sanitize_filename(&game_name),
         "emulator_filename": emu_filename,
         "rom_filename": rom_filename,
         "config_dir": config_dir_name,
-        "fullscreen": fullscreen
+        "fullscreen": fullscreen,
+        "env_vars": env_vars_list,
+        "args_before_rom": args_before,
+        "args_after_rom": args_after
     });
     let config_json = serde_json::to_vec(&portable_config)
         .map_err(|e| format!("Failed to serialize config: {}", e))?;
     
     // Step 4: Concatenate: stub + marker + config_len + config + zip
-    let output_path = output_dir.join(sanitize_filename(&game_name));
+    let output_path = output_dir_canonical.join(sanitize_filename(&game_name));
     let mut output_file = File::create(&output_path)
         .map_err(|e| format!("Failed to create output file: {}", e))?;
     
@@ -1031,7 +471,8 @@ fn forge_portable_executable(
     }
     
     // Cleanup temp files
-    let _ = std::fs::remove_dir_all(&temp_config_dir);
+    println!("🧹 Suppression du dossier temporaire: {:?}", temp_work_dir);
+    let _ = std::fs::remove_dir_all(&temp_work_dir);
     
     Ok(output_path.to_string_lossy().to_string())
 }
@@ -1101,8 +542,10 @@ fn add_directory_to_zip<W: Write + std::io::Seek>(
         let name = format!("{}/{}", prefix, entry.file_name().to_string_lossy());
         
         if path.is_dir() {
+            println!("   📁 Dossier ZIP: {}", name);
             add_directory_to_zip(app, zip, &path, &name, options)?;
         } else {
+            println!("   📄 Fichier ZIP: {} ({} bytes)", name, path.metadata().map(|m| m.len()).unwrap_or(0));
             add_file_to_zip(app, zip, &path, &name, options)?;
         }
     }
@@ -1166,6 +609,16 @@ fn quit_app(app: tauri::AppHandle) {
     app.exit(0);
 }
 
+#[tauri::command]
+fn detect_platform(path: String) -> String {
+    use emuforge_core::detection::{FileAnalyzer};
+    println!("🔍 Analyzing ROM: {}", path);
+    let path = PathBuf::from(path);
+    let platform = FileAnalyzer::identify_platform(&path);
+    println!("✅ Detected Platform: {:?}", platform);
+    platform.as_str().to_string()
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -1175,7 +628,7 @@ pub fn run() {
         .manage(AppState {
             output_dir: Mutex::new(PathBuf::from("output")),
         })
-        .invoke_handler(tauri::generate_handler![forge_executable, validate_file, download_emulator, get_installed_emulators, quit_app])
+        .invoke_handler(tauri::generate_handler![forge_executable, validate_file, download_emulator, get_installed_emulators, quit_app, detect_platform])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

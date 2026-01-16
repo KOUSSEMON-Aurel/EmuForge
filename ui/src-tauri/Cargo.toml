@@ -26,5 +26,6 @@ emuforge-core = { path = "../../core" }
 tauri-plugin-dialog = "2.4.2"
 dirs = "6.0.0"
 zip = { version = "2.4", default-features = false, features = ["aes-crypto", "bzip2", "deflate64", "deflate", "time", "zstd"] }
+uuid = { version = "1.19.0", features = ["v4"] }
 
 

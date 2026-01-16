@@ -22,23 +22,25 @@ impl EmulatorDownloader {
         let is_windows = cfg!(target_os = "windows");
         
         match (emu_id, is_windows) {
-            // PPSSPP - Using v1.17.1 for Windows and v1.19.3 for Linux (AppImage) as availability varies
-            ("ppsspp", true) => Some(("https://github.com/hrydgard/ppsspp/releases/download/v1.19.3/PPSSPPSDL-macOS-v1.19.3.zip", "PPSSPPWindowsPlaceholder.zip")), // Windows ZIPs seem to be missing from recent GitHub Releases. Using macOS placeholder for now to prevent build break, but should be fixed.
+            // PPSSPP - Pinned Versions
+            // Windows: v1.17.1 (Last stable ZIP on GitHub)
+            // Linux: v1.19.3 (AppImage)
+            ("ppsspp", true) => Some(("https://github.com/hrydgard/ppsspp/releases/download/v1.17.1/PPSSPPWindows.zip", "PPSSPPWindows.zip")),
             ("ppsspp", false) => Some(("https://github.com/hrydgard/ppsspp/releases/download/v1.19.3/PPSSPP-v1.19.3-anylinux-x86_64.AppImage", "PPSSPP.AppImage")),
             
-            // PCSX2 (Nightly/Stable needed - linking to strict versions recommended)
-            ("pcsx2", true) => Some(("https://github.com/PCSX2/pcsx2/releases/download/v1.7.5500/pcsx2-v1.7.5500-windows-x64-Qt.7z", "pcsx2-windows.7z")), // 7z support needed!
-            ("pcsx2", false) => Some(("https://github.com/PCSX2/pcsx2/releases/download/v1.7.5500/pcsx2-v1.7.5500-linux-appimage-x64-Qt.AppImage", "PCSX2.AppImage")),
+            // PCSX2 - Pinned v2.2.0 (Stable)
+            ("pcsx2", true) => Some(("https://github.com/PCSX2/pcsx2/releases/download/v2.2.0/pcsx2-v2.2.0-windows-x64-Qt.7z", "pcsx2-windows.7z")),
+            ("pcsx2", false) => Some(("https://github.com/PCSX2/pcsx2/releases/download/v2.2.0/pcsx2-v2.2.0-linux-appimage-x64-Qt.AppImage", "PCSX2.AppImage")),
             
-            // DuckStation
-            ("duckstation", true) => Some(("https://github.com/stenzek/duckstation/releases/download/latest/duckstation-windows-x64.zip", "duckstation-windows.zip")),
-            ("duckstation", false) => Some(("https://github.com/stenzek/duckstation/releases/download/latest/DuckStation-x64.AppImage", "DuckStation.AppImage")),
+            // DuckStation - Pinned v0.1-10530 (Specific Rolling Tag)
+            ("duckstation", true) => Some(("https://github.com/stenzek/duckstation/releases/download/v0.1-10530/duckstation-windows-x64-release.zip", "duckstation-windows.zip")),
+            ("duckstation", false) => Some(("https://github.com/stenzek/duckstation/releases/download/v0.1-10530/DuckStation-x64.AppImage", "DuckStation.AppImage")),
 
-            // Dolphin
+            // Dolphin - Pinned 5.0-19870
             ("dolphin", true) => Some(("https://dl.dolphin-emu.org/releases/202309/dolphin-master-5.0-19870-x64.7z", "dolphin-x64.7z")),
-            ("dolphin", false) => Some(("https://dl.dolphin-emu.org/releases/202309/dolphin-master-5.0-19870-x64.dmg", "dolphin.dmg")), // Wait, Linux usually builds from source or flatpak. AppImage not official?
+            ("dolphin", false) => Some(("https://dl.dolphin-emu.org/releases/202309/dolphin-master-5.0-19870-x64.dmg", "dolphin.dmg")), // Note: DMG is macOS. Linux users should use Flatpak/System package.
 
-            // For PROOF OF CONCEPT, we implement PPSSPP fully as it uses standard ZIP/TAR.
+            // Other emulators would need manual implementation or usage of system packages
             _ => None
         }
     }
