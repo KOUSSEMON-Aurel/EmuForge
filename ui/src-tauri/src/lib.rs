@@ -112,15 +112,30 @@ async fn forge_executable(
     // NOUVEAU: Setup environment pour le mode NON-PORTABLE (Raccourci)
     // Ici, on VEUT que la structure persiste dans le dossier de sortie pour que le jeu fonctionne.
     if let Some(plugin) = &maybe_plugin {
-        let bios_p = bios_path.as_ref().map(|s| Path::new(s.as_str()));
+        // Convert bios_path to PathBuf if present
+        let bios_pathbuf = bios_path.as_ref().map(|s| PathBuf::from(s));
+        let bios_p = bios_pathbuf.as_deref();
+        
+        // Setup environment (configs, BIOS, etc.)
         plugin.setup_environment(&out_path, bios_p)
-            .map_err(|e| format!("Plugin setup error: {}", e))?;
-    }
+            .map_err(|e| format!("Environment setup failed: {}", e))?;
+        
+        // Vérifier si le plugin nécessite un patch de l'émulateur (ex: RPCS3 avec firmware)
+        let final_emulator_path = if let Some(patched) = plugin.prepare_portable_binary(
+            &emu_p,
+            bios_p,
+            &out_path
+        ).map_err(|e| format!("Emulator patching failed: {}", e))? {
+            println!("🔧 Using patched emulator binary for shortcut");
+            patched
+        } else {
+            emu_p.clone()
+        };
+        
+        // Update config with potentially patched emulator path
+        config.emulator_path = final_emulator_path;
 
-    let forge = ExecutableForge::new(stub_crate_path, out_path.clone());
-
-    // 3. Generate wrapper script si nécessaire (ex: DuckStation)
-    if let Some(plugin) = &maybe_plugin {
+        // 3. Generate wrapper script si nécessaire (ex: DuckStation)
         if plugin.requires_wrapper() {
             if let Some(wrapper_path) = plugin.generate_wrapper_script(&config, &out_path, &game_name)
                 .map_err(|e| format!("Wrapper error: {}", e))? {
@@ -131,6 +146,8 @@ async fn forge_executable(
             }
         }
     }
+
+    let forge = ExecutableForge::new(stub_crate_path, out_path.clone());
 
     match forge.forge(&game_name, &config) {
         Ok(path) => Ok(path.to_string_lossy().to_string()),
@@ -170,16 +187,29 @@ fn forge_portable_executable(
     // Appeler setup_environment via le plugin DANS LE TEMP DIR
     let manager = PluginManager::new();
     let plugin_opt = manager.configured_driver_for(&emulator_path);
-    if let Some(plugin) = &plugin_opt {
+    
+    // Vérifier si le plugin nécessite un patch de l'émulateur (ex: RPCS3 avec firmware)
+    let final_emulator_path = if let Some(plugin) = &plugin_opt {
         println!("🔌 Plugin détecté: {}", plugin.id());
         let bios_p = bios_path.as_ref().map(|p| p.as_path());
         println!("📀 BIOS path fourni: {:?}", bios_p);
+        
         plugin.setup_environment(&temp_work_dir, bios_p)
             .map_err(|e| format!("Plugin setup error: {}", e))?;
         println!("✅ setup_environment terminé");
+        
+        // Check if emulator needs patching (e.g. RPCS3 with firmware)
+        if let Some(patched) = plugin.prepare_portable_binary(&emulator_path, bios_p, &temp_work_dir)
+            .map_err(|e| format!("Emulator patching failed: {}", e))? {
+            println!("🔧 Using patched emulator binary");
+            patched
+        } else {
+            emulator_path.clone()
+        }
     } else {
         println!("⚠️ Aucun plugin détecté pour: {:?}", emulator_path);
-    }
+        emulator_path.clone()
+    };
     
     // Step 1: Find and compile the stub
     let possible_paths = vec!["../../stub", "../stub", "stub"];
@@ -255,7 +285,7 @@ fn forge_portable_executable(
         emu_options = emu_options.unix_permissions(0o755);
     }
     
-    add_file_to_zip(&app, &mut zip, &emulator_path, &emu_filename, emu_options)?;
+    add_file_to_zip(&app, &mut zip, &final_emulator_path, &emu_filename, emu_options)?;
     
     // Add ROM
     // Optimization: Use Stored (no compression) for ROMs to speed up forging significantly.

@@ -39,6 +39,10 @@ impl EmulatorDownloader {
             // Dolphin - Pinned 5.0-19870
             ("dolphin", true) => Some(("https://dl.dolphin-emu.org/releases/202309/dolphin-master-5.0-19870-x64.7z", "dolphin-x64.7z")),
             ("dolphin", false) => Some(("https://github.com/pkgforge-dev/Dolphin-emu-AppImage/releases/download/2512%402026-01-15_1768463428/Dolphin_Emulator-2512-anylinux.squashfs-x86_64.AppImage", "Dolphin.AppImage")),
+            
+            // RPCS3 - Pinned v0.0.39-18703
+            ("rpcs3", true) => Some(("https://github.com/RPCS3/rpcs3-binaries-win/releases/download/build-eaebd3426e7050c35beb8f24952d6da4d6a75360/rpcs3-v0.0.39-18703-eaebd342_win64_msvc.7z", "rpcs3-windows.7z")),
+            ("rpcs3", false) => Some(("https://github.com/RPCS3/rpcs3-binaries-linux/releases/download/build-eaebd3426e7050c35beb8f24952d6da4d6a75360/rpcs3-v0.0.39-18703-eaebd342_linux64.AppImage", "RPCS3.AppImage")),
 
             // Other emulators would need manual implementation or usage of system packages
             _ => None
@@ -52,6 +56,7 @@ impl EmulatorDownloader {
                  "duckstation" => "duckstation-qt-x64-ReleaseLTCG.exe",
                  "pcsx2" => "pcsx2-qtx64.exe", 
                  "dolphin" => "Dolphin.exe",
+                 "rpcs3" => "rpcs3.exe",
                  _ => "emulator.exe"
              }.to_string()
         } else {
@@ -60,6 +65,7 @@ impl EmulatorDownloader {
                  "duckstation" => "DuckStation.AppImage",
                  "pcsx2" => "PCSX2.AppImage",
                  "dolphin" => "Dolphin.AppImage", 
+                 "rpcs3" => "RPCS3.AppImage", 
                  _ => "emulator"
              }.to_string()
         }
@@ -171,6 +177,43 @@ impl EmulatorDownloader {
         
         // Fallback to predicted path if search fails (will likely throw error downstream but better than crash)
         Ok(install_dir.join(binary_name))
+    }
+    
+    /// Télécharge appimagetool pour le patching d'AppImages
+    pub async fn download_appimagetool(&self) -> Result<PathBuf> {
+        let tools_dir = self.base_dir.parent()
+            .unwrap_or(&self.base_dir)
+            .join("tools");
+        fs::create_dir_all(&tools_dir)
+            .context("Failed to create tools directory")?;
+        
+        let output_path = tools_dir.join("appimagetool");
+        
+        // Vérifier si déjà téléchargé
+        if output_path.exists() {
+            println!("appimagetool already exists");
+            return Ok(output_path);
+        }
+        
+        let url = "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage";
+        
+        println!("Downloading appimagetool from {}...", url);
+        let response = reqwest::get(url).await.context("Failed to fetch appimagetool")?;
+        let bytes = response.bytes().await.context("Failed to download appimagetool bytes")?;
+        
+        fs::write(&output_path, bytes).context("Failed to write appimagetool")?;
+        
+        // Rendre exécutable
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = fs::metadata(&output_path)?.permissions();
+            perms.set_mode(0o755);
+            fs::set_permissions(&output_path, perms)?;
+        }
+        
+        println!("✅ appimagetool downloaded successfully");
+        Ok(output_path)
     }
 }
 

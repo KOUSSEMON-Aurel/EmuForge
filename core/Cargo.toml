@@ -7,7 +7,7 @@ edition = "2021"
 anyhow.workspace = true
 flate2 = "1.1.5"
 regex = "1.12.2"
-reqwest = "0.12.28"
+reqwest = { version = "0.12.28", features = ["blocking"] }
 serde.workspace = true
 serde_json.workspace = true
 sevenz-rust = "0.6.1"
@@ -16,6 +16,12 @@ thiserror.workspace = true
 walkdir.workspace = true
 which = "8.0.0"
 zip = { version = "7.1.0", default-features = false, features = ["aes-crypto", "bzip2", "deflate64", "deflate", "time", "zstd"] }
+uuid = { version = "1.11.0", features = ["v4"] }
+tokio = { version = "1.41.1", features = ["rt"] }
+dirs = "5.0.1"
+aes = "0.8"
+cbc = "0.1"
+ctr = "0.9"
 
 [dev-dependencies]
 tempfile = "3.24.0"

@@ -76,6 +76,18 @@ pub trait EmulatorPlugin: Send + Sync {
         let before = if fullscreen { vec!["--fullscreen".to_string()] } else { vec![] };
         (before, vec![])
     }
+    
+    /// Prépare le binaire de l'émulateur pour mode portable (patch si nécessaire)
+    /// Retourne Some(PathBuf) si un binaire patché a été créé, None sinon
+    fn prepare_portable_binary(
+        &self,
+        _original_binary: &Path,
+        _bios_firmware_path: Option<&Path>,
+        _work_dir: &Path,
+    ) -> Result<Option<PathBuf>> {
+        // Par défaut, pas de patching nécessaire
+        Ok(None)
+    }
 }
 
 
