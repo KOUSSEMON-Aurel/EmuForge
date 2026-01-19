@@ -146,25 +146,27 @@ Player 1 Input:
     Left Stick Down: S
     Left Stick Right: D
     Left Stick Up: W
-    Right Stick Left: J
-    Right Stick Down: K
-    Right Stick Right: L
-    Right Stick Up: I
+    Right Stick Left: Del
+    Right Stick Down: End
+    Right Stick Right: PgDown
+    Right Stick Up: Home
     Start: Return
-    Select: Backspace
-    PS Button: Escape
-    Square: Q
-    Cross: E
-    Circle: R
-    Triangle: T
+    Select: Space
+    PS Button: Backspace
+    Square: Z
+    Cross: X
+    Circle: C
+    Triangle: V
     Left: Left
     Down: Down
     Right: Right
     Up: Up
-    R1: O
-    R2: P
-    L1: U
-    L2: Y
+    R1: E
+    R2: T
+    R3: G
+    L1: Q
+    L2: R
+    L3: F
 Player 2 Input:
   Handler: "Null"
 EOKEY
