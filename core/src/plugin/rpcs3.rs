@@ -132,7 +132,8 @@ show_setup_wizard=false
     }
 
     fn fullscreen_args(&self) -> Vec<String> {
-        vec![] // RPCS3 n'a pas de --fullscreen CLI direct
+        // --no-gui pour que RPCS3 se ferme quand le jeu se termine
+        vec!["--no-gui".to_string()]
     }
     
     fn portable_launch_args(&self, _fullscreen: bool) -> (Vec<String>, Vec<String>) {
