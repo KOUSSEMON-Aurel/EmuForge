@@ -297,14 +297,31 @@ Player 2 Input:
   Device: Keyboard
   Profile: Default
   Config:
-    Left Stick Left: Left
-    Left Stick Down: Down
-    Left Stick Right: Right
-    Left Stick Up: Up
+    Left Stick Left: A
+    Left Stick Down: S
+    Left Stick Right: D
+    Left Stick Up: W
+    Right Stick Left: Del
+    Right Stick Down: End
+    Right Stick Right: PgDown
+    Right Stick Up: Home
     Start: Return
-    Select: Backspace
-    Cross: Space
-    Circle: Escape
+    Select: Space
+    PS Button: Backspace
+    Square: Z
+    Cross: X
+    Circle: C
+    Triangle: V
+    Left: Left
+    Down: Down
+    Right: Right
+    Up: Up
+    R1: E
+    R2: T
+    R3: G
+    L1: Q
+    L2: R
+    L3: F
 Player 3 Input:
   Handler: "Null"
   Device: ""
