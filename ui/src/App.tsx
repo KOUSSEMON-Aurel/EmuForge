@@ -224,7 +224,7 @@ function App() {
       multiple: false,
       filters: [{
         name: 'Game ROM',
-        extensions: ['iso', 'cso', 'bin', 'cue', 'm3u', 'img', 'nsp', 'xci', 'rvz', 'wbfs', 'chd', 'nds', '3ds', 'cia', 'wua', 'gdi', 'cdi']
+        extensions: ['iso', 'cso', 'bin', 'cue', 'm3u', 'img', 'nsp', 'xci', 'rvz', 'wbfs', 'chd', 'nds', '3ds', 'cia', 'wua', 'wux', 'wud', 'gdi', 'cdi']
       }]
     });
     if (selected) {
