@@ -138,6 +138,96 @@ impl EmulatorPlugin for CemuPlugin {
             }
         }
 
+        // --- SMART CONTROLLER CONFIGURATION ---
+        // Logic:
+        // - Count connected gamepads (checking /dev/input/js*)
+        // - P1 assigned to Gamepad if present, otherwise Keyboard
+        // - P2 assigned to Gamepad (if >1) or Keyboard (if P1 is Gamepad)
+        // - We overwrite controller0.xml and controller1.xml to enforce this "Plug & Play" behavior
+        
+        // --- SMART CONTROLLER CONFIGURATION WITH SDL2 ---
+        // Logic:
+        // - Init SDL2
+        // - Enumerate GameControllers (better than raw Joysticks for mapping, but Cemu uses raw GUIDs often same as disk)
+        // - If found, get Name and GUID
+        // - Inject into XML template
+        // - Write to controller0.xml
+        
+        let mut gamepad_count = 0;
+        
+        // Use a block to ensure SDL context is dropped or we handle it gracefully
+        // Note: Initializing SDL in a plugin might be tricky if the main app also uses it, 
+        // but here we just need it for a split second to check devices.
+        if let Ok(sdl_context) = sdl2::init() {
+            // We need both subsystems: 
+            // - GameController to check if it's a supported gamepad (mapping available)
+            // - Joystick to get the GUID (GameControllerSubsystem doesn't expose it by index directly in some versions)
+            let gc_subsystem = sdl_context.game_controller();
+            let joy_subsystem = sdl_context.joystick();
+
+            if let (Ok(gc), Ok(joy)) = (gc_subsystem, joy_subsystem) {
+                 let available = joy.num_joysticks().unwrap_or(0);
+                 eprintln!("🎮 SDL2 Detected {} potential devices", available);
+                 
+                 if available > 0 {
+                     for i in 0..available {
+                         if gc.is_game_controller(i) {
+                             // It's a recognized controller
+                             // Get GUID via Joystick Subsystem
+                             let guid = joy.device_guid(i).map(|g| g.to_string()).unwrap_or("".to_string());
+                             let name = gc.name_for_index(i).unwrap_or("Unknown Controller".to_string());
+                             
+                             eprintln!("🎮 Gamepad #{} Found: '{}' GUID: {}", i, name, guid);
+                             
+                             gamepad_count += 1;
+                             
+                             // We only support auto-configuring P1 for now with the first found controller
+                             // P2 will be keyboard if P1 is gamepad
+                             if gamepad_count == 1 {
+                                 if cfg!(target_os = "linux") {
+                                    if let Some(home) = dirs::home_dir() {
+                                        let profile_dir = home.join(".config/Cemu/controllerProfiles");
+                                        let _ = std::fs::create_dir_all(&profile_dir);
+                                        
+                                        let mut sdl_content = include_str!("../assets/cemu_controller_sdl.xml").to_string();
+                                        sdl_content = sdl_content.replace("{GUID}", &guid);
+                                        sdl_content = sdl_content.replace("{NAME}", &name);
+                                        
+                                        let p1_file = profile_dir.join("controller0.xml");
+                                        if let Ok(_) = std::fs::write(&p1_file, sdl_content) {
+                                            eprintln!("✅ P1 Configured with SDL Controller: {}", name);
+                                        }
+                                        
+                                        // Auto-configure P2 as Keyboard (Pro Controller) so it's usable
+                                        let kbd_template = include_str!("../assets/cemu_controller_keyboard.xml");
+                                        let p2_content = kbd_template.replace("Wii U GamePad", "Wii U Pro Controller");
+                                        let p2_file = profile_dir.join("controller1.xml");
+                                        let _ = std::fs::write(p2_file, p2_content);
+                                    }
+                                 }
+                             }
+                         }
+                     }
+                 }
+            }
+        } else {
+            eprintln!("⚠️ Failed to init SDL2 for controller detection");
+        }
+
+        // Fallback: If no gamepads found (gamepad_count == 0), set P1 to Keyboard
+        if gamepad_count == 0 {
+            if cfg!(target_os = "linux") {
+               if let Some(home) = dirs::home_dir() {
+                   let profile_dir = home.join(".config/Cemu/controllerProfiles");
+                   let _ = std::fs::create_dir_all(&profile_dir);
+                   let kbd_template = include_str!("../assets/cemu_controller_keyboard.xml");
+                   let p1_file = profile_dir.join("controller0.xml");
+                   let _ = std::fs::write(&p1_file, kbd_template);
+                   eprintln!("✅ No gamepad found. P1 assigned to Keyboard (Wii U GamePad Mode)");
+               }
+            }
+        }
+
         Ok(())
     }
 

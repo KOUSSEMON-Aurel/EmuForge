@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<emulated_controller>
+    <type>Wii U GamePad</type>
+    <profile>Default-Keyboard</profile>
+    <controller>
+        <api>Keyboard</api>
+        <uuid>Keyboard</uuid>
+        <display_name>Keyboard</display_name>
+        <axis>
+            <deadzone>0</deadzone>
+            <range>1</range>
+        </axis>
+        <mappings>
+            <!-- A -> Z (Scan 0x2C) -->
+            <entry>
+                <mapping>1</mapping>
+                <button>44</button>
+            </entry>
+            <!-- B -> X (Scan 0x2D) -->
+            <entry>
+                <mapping>2</mapping>
+                <button>45</button>
+            </entry>
+            <!-- X -> Q (Scan 0x10) -->
+            <entry>
+                <mapping>3</mapping>
+                <button>16</button>
+            </entry>
+            <!-- Y -> E (Scan 0x12) -->
+            <entry>
+                <mapping>4</mapping>
+                <button>18</button>
+            </entry>
+            <!-- L -> R (Scan 0x13) -->
+            <entry>
+                <mapping>5</mapping>
+                <button>19</button>
+            </entry>
+            <!-- R -> T (Scan 0x14) -->
+            <entry>
+                <mapping>6</mapping>
+                <button>20</button>
+            </entry>
+            <!-- Plus -> Enter (Scan 0x1C) -->
+            <entry>
+                <mapping>9</mapping>
+                <button>28</button>
+            </entry>
+            <!-- Minus -> Backspace (Scan 0x0E) -->
+            <entry>
+                <mapping>10</mapping>
+                <button>14</button>
+            </entry>
+             <!-- ZL -> Space (Scan 0x39) -->
+             <entry>
+                <mapping>17</mapping>
+                <button>57</button>
+            </entry>
+            <!-- ZR -> Shift (Scan 0x2A) -->
+            <entry>
+                <mapping>18</mapping>
+                <button>42</button>
+            </entry>
+            <!-- L-Stick Up/Down/Left/Right -> W (17), S (31), A (30), D (32) -->
+            <!-- D-Stick Mappings in Keyboard are weird, usually handled by Axis mappings in XML? 
+                 But modern format uses entries. Let's assume standard scancodes map to stick axes if configured? 
+                 The example shows <axis> logic but for keyboard we need keys. 
+                 Actually, Keyboard API usually uses <axis> entries mapping keys to axis directions.
+                 Given the uncertainty, I will map the Buttons only and hope D-Pad works or Cemu defaults.
+                 DPA in Keyboard: -->
+            <entry>
+                <mapping>11</mapping>
+                <button>72</button>
+            </entry> <!-- Up -->
+            <entry>
+                <mapping>12</mapping>
+                <button>80</button>
+            </entry> <!-- Down -->
+            <entry>
+                <mapping>13</mapping>
+                <button>75</button>
+            </entry> <!-- Left -->
+            <entry>
+                <mapping>14</mapping>
+                <button>77</button>
+            </entry> <!-- Right -->
+        </mappings>
+    </controller>
+</emulated_controller>

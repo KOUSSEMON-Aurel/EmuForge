@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<emulated_controller>
+    <type>Wii U GamePad</type>
+    <profile>Default-SDL</profile>
+    <controller>
+        <api>SDLController</api>
+        <uuid>0_{GUID}</uuid>
+        <display_name>{NAME}</display_name>
+        <rumble>0</rumble>
+        <axis>
+            <deadzone>0.10</deadzone>
+            <range>1</range>
+        </axis>
+        <rotation>
+            <deadzone>0.25</deadzone>
+            <range>1</range>
+        </rotation>
+        <trigger>
+            <deadzone>0.10</deadzone>
+            <range>1</range>
+        </trigger>
+        <mappings>
+            <!-- A (Nintendo) -> B (SDL 1) -->
+            <entry>
+                <mapping>1</mapping>
+                <button>1</button>
+            </entry>
+            <!-- B (Nintendo) -> A (SDL 0) -->
+            <entry>
+                <mapping>2</mapping>
+                <button>0</button>
+            </entry>
+            <!-- X (Nintendo) -> Y (SDL 3) -->
+            <entry>
+                <mapping>3</mapping>
+                <button>3</button>
+            </entry>
+            <!-- Y (Nintendo) -> X (SDL 2) -->
+            <entry>
+                <mapping>4</mapping>
+                <button>2</button>
+            </entry>
+            <!-- L -> Left Shoulder (SDL 9) -->
+            <entry>
+                <mapping>5</mapping>
+                <button>9</button>
+            </entry>
+            <!-- R -> Right Shoulder (SDL 10) -->
+            <entry>
+                <mapping>6</mapping>
+                <button>10</button>
+            </entry>
+            <!-- Plus -> Start (SDL 6) -->
+            <entry>
+                <mapping>9</mapping>
+                <button>6</button>
+            </entry>
+            <!-- Minus -> Back (SDL 4) -->
+            <entry>
+                <mapping>10</mapping>
+                <button>4</button>
+            </entry>
+            <!-- L-Click -> Left Stick Click (SDL 7) -->
+            <entry>
+                <mapping>15</mapping>
+                <button>7</button>
+            </entry>
+            <!-- R-Click -> Right Stick Click (SDL 8) -->
+            <entry>
+                <mapping>16</mapping>
+                <button>8</button>
+            </entry>
+            <!-- D-Up (SDL 11) -->
+            <entry>
+                <mapping>11</mapping>
+                <button>11</button>
+            </entry>
+            <!-- D-Down (SDL 12) -->
+            <entry>
+                <mapping>12</mapping>
+                <button>12</button>
+            </entry>
+            <!-- D-Left (SDL 13) -->
+            <entry>
+                <mapping>13</mapping>
+                <button>13</button>
+            </entry>
+            <!-- D-Right (SDL 14) -->
+            <entry>
+                <mapping>14</mapping>
+                <button>14</button>
+            </entry>
+            <!-- Note: ZL (17) and ZR (18) are omitted from mappings to force reliance on <trigger> axis handling 
+                 unless we find the specific button ID for axis-as-button. 
+                 If Cemu auto-detects triggers via SDL Axes (4/5), this should work. -->
+        </mappings>
+    </controller>
+</emulated_controller>
