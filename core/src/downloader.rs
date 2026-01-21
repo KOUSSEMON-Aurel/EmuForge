@@ -44,6 +44,10 @@ impl EmulatorDownloader {
             ("rpcs3", true) => Some(("https://github.com/RPCS3/rpcs3-binaries-win/releases/download/build-eaebd3426e7050c35beb8f24952d6da4d6a75360/rpcs3-v0.0.39-18703-eaebd342_win64_msvc.7z", "rpcs3-windows.7z")),
             ("rpcs3", false) => Some(("https://github.com/RPCS3/rpcs3-binaries-linux/releases/download/build-eaebd3426e7050c35beb8f24952d6da4d6a75360/rpcs3-v0.0.39-18703-eaebd342_linux64.AppImage", "RPCS3.AppImage")),
 
+            // Cemu - Pinned v2.4 (Latest stable Wii U emulator)
+            ("cemu", true) => Some(("https://github.com/cemu-project/Cemu/releases/download/v2.4/Cemu_2.4.zip", "cemu-windows.zip")),
+            ("cemu", false) => Some(("https://github.com/cemu-project/Cemu/releases/download/v2.4/Cemu-2.4-x64.AppImage", "Cemu.AppImage")),
+
             // Other emulators would need manual implementation or usage of system packages
             _ => None
         }
@@ -57,6 +61,7 @@ impl EmulatorDownloader {
                  "pcsx2" => "pcsx2-qtx64.exe", 
                  "dolphin" => "Dolphin.exe",
                  "rpcs3" => "rpcs3.exe",
+                 "cemu" => "Cemu.exe",
                  _ => "emulator.exe"
              }.to_string()
         } else {
@@ -65,7 +70,8 @@ impl EmulatorDownloader {
                  "duckstation" => "DuckStation.AppImage",
                  "pcsx2" => "PCSX2.AppImage",
                  "dolphin" => "Dolphin.AppImage", 
-                 "rpcs3" => "RPCS3.AppImage", 
+                 "rpcs3" => "RPCS3.AppImage",
+                 "cemu" => "Cemu.AppImage", 
                  _ => "emulator"
              }.to_string()
         }
