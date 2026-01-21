@@ -44,10 +44,9 @@ impl EmulatorPlugin for DolphinPlugin {
         Ok(LaunchConfig {
             emulator_path: binary,
             rom_path: rom_path.to_path_buf(),
-            bios_path: None, 
             args,
-            working_dir: None, 
-            env_vars: vec![("QT_QPA_PLATFORM".to_string(), "xcb".to_string())], // Often needed on Linux
+            env_vars: vec![("QT_QPA_PLATFORM".to_string(), "xcb".to_string())],
+            ..Default::default()
         })
     }
 

@@ -22,6 +22,8 @@ struct LaunchConfig {
     #[allow(dead_code)]
     bios_path: Option<PathBuf>,
     args: Vec<String>,
+    #[serde(default)]
+    args_after_rom: Vec<String>,
     working_dir: Option<PathBuf>,
     env_vars: Vec<(String, String)>,
 }
@@ -313,6 +315,9 @@ fn run_launcher_mode() {
     if !config.rom_path.as_os_str().is_empty() {
         cmd.arg(&config.rom_path);
     }
+
+    // Add arguments that come AFTER the ROM path (e.g., Cemu's -f for fullscreen)
+    cmd.args(&config.args_after_rom);
 
     let mut child = cmd.spawn().expect("Failed to launch emulator");
     let _ = child.wait();

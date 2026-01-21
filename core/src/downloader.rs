@@ -44,9 +44,9 @@ impl EmulatorDownloader {
             ("rpcs3", true) => Some(("https://github.com/RPCS3/rpcs3-binaries-win/releases/download/build-eaebd3426e7050c35beb8f24952d6da4d6a75360/rpcs3-v0.0.39-18703-eaebd342_win64_msvc.7z", "rpcs3-windows.7z")),
             ("rpcs3", false) => Some(("https://github.com/RPCS3/rpcs3-binaries-linux/releases/download/build-eaebd3426e7050c35beb8f24952d6da4d6a75360/rpcs3-v0.0.39-18703-eaebd342_linux64.AppImage", "RPCS3.AppImage")),
 
-            // Cemu - Pinned v2.4 (Latest stable Wii U emulator)
-            ("cemu", true) => Some(("https://github.com/cemu-project/Cemu/releases/download/v2.4/Cemu_2.4.zip", "cemu-windows.zip")),
-            ("cemu", false) => Some(("https://github.com/cemu-project/Cemu/releases/download/v2.4/Cemu-2.4-x64.AppImage", "Cemu.AppImage")),
+            // Cemu - Pinned v2.6 (Latest stable Wii U emulator)
+            ("cemu", true) => Some(("https://github.com/cemu-project/Cemu/releases/download/v2.6/cemu-2.6-windows-x64.zip", "cemu-windows.zip")),
+            ("cemu", false) => Some(("https://github.com/cemu-project/Cemu/releases/download/v2.6/Cemu-2.6-x86_64.AppImage", "Cemu.AppImage")),
 
             // Other emulators would need manual implementation or usage of system packages
             _ => None

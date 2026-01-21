@@ -183,10 +183,9 @@ impl EmulatorPlugin for Pcsx2Plugin {
         Ok(LaunchConfig {
             emulator_path: binary,
             rom_path: rom_path.to_path_buf(),
-            bios_path: None, // Not passed as arg to emulator
             args,
-            working_dir: None, 
             env_vars,
+            ..Default::default()
         })
     }
 

@@ -54,6 +54,7 @@ async fn forge_executable(
             rom_path: rom_p.clone(),
             bios_path: bios_path.as_ref().map(PathBuf::from),
             args,
+            args_after_rom: vec![],
             working_dir: None,
             env_vars: vec![],
         }, "generic".to_string())
@@ -68,8 +69,13 @@ async fn forge_executable(
     // 2. Fullscreen args via le plugin
     if fullscreen {
         if let Some(plugin) = &maybe_plugin {
+            // Args avant la ROM
             for arg in plugin.fullscreen_args() {
                 config.args.push(arg);
+            }
+            // Args après la ROM (ex: Cemu -f)
+            for arg in plugin.fullscreen_args_after_rom() {
+                config.args_after_rom.push(arg);
             }
         } else {
             config.args.push("--fullscreen".to_string());
@@ -631,7 +637,9 @@ async fn get_installed_emulators() -> Result<Vec<String>, String> {
     // Check list of known emulators
     // Ideally we iterate known plugins or a static list.
     // For now, let's just check the ones we hardcoded in downloader logic or UI.
-    let candidates = vec!["ppsspp", "pcsx2", "duckstation", "dolphin", "ryujinx", "cemu", "xemu", "rpcs3", "melonds", "lime3ds", "redream"];
+    // IMPORTANT: Seuls les émulateurs avec une URL dans downloader.get_url() doivent être ici
+    // Les autres (xemu, ryujinx, melonds, lime3ds, redream) ne peuvent pas être téléchargés
+    let candidates = vec!["ppsspp", "pcsx2", "duckstation", "dolphin", "cemu", "rpcs3"];
     
     let mut installed = vec![];
     for id in candidates {

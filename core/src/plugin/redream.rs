@@ -39,6 +39,7 @@ impl EmulatorPlugin for RedreamPlugin {
             bios_path: None, 
             args,
             working_dir: None, 
+            args_after_rom: vec![],
             env_vars: vec![],
         })
     }

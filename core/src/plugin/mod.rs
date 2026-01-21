@@ -25,10 +25,16 @@ pub trait EmulatorPlugin: Send + Sync {
     // Nouvelles méthodes avec implémentation par défaut
     // =========================================
 
-    /// Arguments pour activer le mode plein écran.
+    /// Arguments pour activer le mode plein écran (ajoutés AVANT la ROM).
     /// Implémentation par défaut : --fullscreen (standard pour la plupart des émulateurs).
     fn fullscreen_args(&self) -> Vec<String> {
         vec!["--fullscreen".to_string()]
+    }
+
+    /// Arguments fullscreen à ajouter APRÈS la ROM.
+    /// Par défaut vide. Override pour émulateurs comme Cemu qui requièrent -f après le jeu.
+    fn fullscreen_args_after_rom(&self) -> Vec<String> {
+        vec![]
     }
 
     /// Prépare l'environnement de l'émulateur (config, BIOS, etc.).
