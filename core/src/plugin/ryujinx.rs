@@ -187,10 +187,29 @@ impl RyujinxPlugin {
                             let mapping = controller.mapping();
                             let raw_guid = mapping.split(',').next().unwrap_or("0").to_string();
 
-                            // Format GUID with dashes for Ryujinx: 8-4-4-4-12
+                            // Fix GUID format for .NET/Ryujinx (Little Endian interpretation of first 3 parts)
+                            // SDL String: AABBCCDD EEFF GGHH ...
+                            // .NET GUID:  DDCCBBAA-FFEE-HHGG-...
                             let formatted_guid = if raw_guid.len() == 32 {
+                                let p1 = &raw_guid[0..8];
+                                let p2 = &raw_guid[8..12];
+                                let p3 = &raw_guid[12..16];
+                                let p4 = &raw_guid[16..20];
+                                let p5 = &raw_guid[20..32];
+
+                                fn swap_bytes(hex: &str) -> String {
+                                    hex.as_bytes()
+                                        .chunks(2)
+                                        .rev()
+                                        .map(|c| std::str::from_utf8(c).unwrap())
+                                        .collect()
+                                }
+
                                 format!("{}-{}-{}-{}-{}", 
-                                    &raw_guid[0..8], &raw_guid[8..12], &raw_guid[12..16], &raw_guid[16..20], &raw_guid[20..32])
+                                    swap_bytes(p1), 
+                                    swap_bytes(p2), 
+                                    swap_bytes(p3), 
+                                    p4, p5)
                             } else {
                                 raw_guid.clone()
                             };
