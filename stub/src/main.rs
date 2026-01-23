@@ -148,17 +148,54 @@ fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        if let Ok(metadata) = fs::metadata(&emulator_path) {
-            let mut perms = metadata.permissions();
-            perms.set_mode(0o755);
-            let _ = fs::set_permissions(&emulator_path, perms);
+        
+        // Helper function for recursive chmod
+        fn set_perms_recursive(path: &std::path::Path) {
+            if let Ok(metadata) = fs::metadata(path) {
+                let mut perms = metadata.permissions();
+                perms.set_mode(0o755);
+                let _ = fs::set_permissions(path, perms);
+                
+                if path.is_dir() {
+                    if let Ok(entries) = fs::read_dir(path) {
+                        for entry in entries.flatten() {
+                            set_perms_recursive(&entry.path());
+                        }
+                    }
+                }
+            }
         }
+        
+        // Apply permissions to the entire extraction directory to ensure all bundled binaries/scripts work
+        set_perms_recursive(&target_dir);
     }
     
     // Check for --clean argument
     let args: Vec<String> = env::args().collect();
     let clean_mode = args.contains(&"--clean".to_string());
     
+    // CHECK PERMISSIONS BEFORE LAUNCH
+    eprintln!("🔍 DEBUG: Checking executable before launch: {:?}", emulator_path);
+    if let Ok(metadata) = fs::symlink_metadata(&emulator_path) {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = metadata.permissions().mode();
+        eprintln!("   📝 Type: {:?} | Mode: {:o}", metadata.file_type(), mode);
+        if metadata.file_type().is_symlink() {
+            if let Ok(target) = fs::read_link(&emulator_path) {
+                eprintln!("   🔗 Symlink points to: {:?}", target);
+                // Check target perms
+                let resolved = if target.is_absolute() { target } else { emulator_path.parent().unwrap().join(target) };
+                if let Ok(t_meta) = fs::metadata(&resolved) {
+                    eprintln!("   🎯 Target Mode: {:o}", t_meta.permissions().mode());
+                } else {
+                    eprintln!("   ❌ Target not found!");
+                }
+            }
+        }
+    } else {
+        eprintln!("   ❌ Invalid path (metadata failed)");
+    }
+
     // Launch the emulator
     let mut cmd = Command::new(&emulator_path);
     
@@ -289,8 +326,21 @@ fn extract_embedded_archive(exe_path: &PathBuf, target_dir: &PathBuf) -> io::Res
 
 /// Run in launcher mode - use embedded config
 fn run_launcher_mode() {
-    let config: LaunchConfig = serde_json::from_str(CONFIG_JSON)
+    let mut config: LaunchConfig = serde_json::from_str(CONFIG_JSON)
         .expect("Failed to parse embedded config");
+
+    // Fix for patched AppImages (Ryujinx) which are directories
+    if config.emulator_path.is_dir() {
+        let app_run = config.emulator_path.join("AppRun");
+        if app_run.exists() {
+            eprintln!("📁 Emulator path is a directory. Automatically using internal AppRun: {:?}", app_run);
+            config.emulator_path = app_run;
+        } else {
+             // Try to find a binary with the same name as the folder?
+             // Or just warn
+             eprintln!("⚠️ Emulator path is a directory but no AppRun found. Launch might fail.");
+        }
+    }
 
     let mut cmd = Command::new(&config.emulator_path);
     
@@ -327,6 +377,16 @@ fn run_launcher_mode() {
 
     // Add arguments that come AFTER the ROM path (e.g., Cemu's -f for fullscreen)
     cmd.args(&config.args_after_rom);
+
+    eprintln!("🚀 DEBUG: Launching in LAUNCHER MODE: {:?}", cmd);
+    
+    // Check permissions for launcher mode too
+    if let Ok(metadata) = fs::metadata(&config.emulator_path) {
+        use std::os::unix::fs::PermissionsExt;
+        eprintln!("   📝 Mode permissions: {:o}", metadata.permissions().mode());
+    } else {
+        eprintln!("   ❌ Executable not found or not accessible: {:?}", config.emulator_path);
+    }
 
     let mut child = cmd.spawn().expect("Failed to launch emulator");
     let _ = child.wait();

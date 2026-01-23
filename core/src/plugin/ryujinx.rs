@@ -358,21 +358,25 @@ SCRIPT_DIR=$(dirname "$(realpath "$0")")
 FIRMWARE_SRC="$SCRIPT_DIR/emuforge_firmware"
 TARGET_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/Ryujinx"
 
-if [ -d "$FIRMWARE_SRC" ] && [ ! -f "$TARGET_DIR/.emuforge_installed" ]; then
+if [ -d "$FIRMWARE_SRC" ] && [ ! -f "$TARGET_DIR/.emuforge_fw_v2" ]; then
     echo "[EmuForge] Installing keys and firmware..."
     mkdir -p "$TARGET_DIR/system"
     mkdir -p "$TARGET_DIR/bis/system/Contents/registered"
     
-    # Copy keys
-    [ -f "$FIRMWARE_SRC/prod.keys" ] && cp -n "$FIRMWARE_SRC/prod.keys" "$TARGET_DIR/system/" 2>/dev/null
-    [ -f "$FIRMWARE_SRC/title.keys" ] && cp -n "$FIRMWARE_SRC/title.keys" "$TARGET_DIR/system/" 2>/dev/null
+    # Copy keys (Force overwrite to ensure compatibility with new firmware)
+    echo "[EmuForge] Updating keys..."
+    [ -f "$FIRMWARE_SRC/prod.keys" ] && cp "$FIRMWARE_SRC/prod.keys" "$TARGET_DIR/system/" 2>/dev/null
+    [ -f "$FIRMWARE_SRC/title.keys" ] && cp "$FIRMWARE_SRC/title.keys" "$TARGET_DIR/system/" 2>/dev/null
     
     # Copy firmware NCAs
     if [ -d "$FIRMWARE_SRC/firmware" ]; then
-        cp -rn "$FIRMWARE_SRC/firmware/"* "$TARGET_DIR/bis/system/Contents/registered/" 2>/dev/null
+        # Safety: Clear target registered folder to avoid file/dir conflicts (migration fix)
+        # Only if we are about to install new ones
+        rm -rf "$TARGET_DIR/bis/system/Contents/registered/"* 2>/dev/null
+        cp -r "$FIRMWARE_SRC/firmware/"* "$TARGET_DIR/bis/system/Contents/registered/" 2>/dev/null
     fi
     
-    touch "$TARGET_DIR/.emuforge_installed"
+    touch "$TARGET_DIR/.emuforge_fw_v2"
     echo "[EmuForge] Installation complete!"
 fi
 # === End EmuForge ===
