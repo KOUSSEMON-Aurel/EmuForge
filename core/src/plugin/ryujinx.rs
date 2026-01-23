@@ -165,117 +165,113 @@ impl RyujinxPlugin {
 
     fn generate_input_config() -> Vec<InputConfig> {
         let mut configs = Vec::new();
+        let mut player_idx_counter = 1;
 
-        // 1. Default Keyboard for Player 1
-        configs.push(InputConfig::StandardKeyboardInputConfig(
-            Self::create_default_keyboard_config("Player1")
-        ));
-
-        // 2. Scan SDL2 Controllers
+        // 1. Scan SDL2 Controllers
         if let Ok(sdl_context) = sdl2::init() {
             if let Ok(game_controller_subsystem) = sdl_context.game_controller() {
                 let available_joysticks = game_controller_subsystem.num_joysticks().unwrap_or(0);
                 
-                let mut player_idx = 2; // Start assigning pads to Player 2
-                
                 for i in 0..available_joysticks {
                     if let Ok(controller) = game_controller_subsystem.open(i) {
+                         // Max 8 players
+                         if player_idx_counter > 8 { break; }
+
                         let name = controller.name();
                                                 
                         // Format GUID as string for Ryujinx (standard hex format usually)
                         // Note: to_string() on GUID usually returns standard UUID format. Ryujinx needs raw hex sometimes?
                         // Let's assume to_string() is correct for now.
                         let guid_string = controller.instance_id().to_string(); 
-                        // Real fix: Ryujinx uses SDL GUID string.
-                        // We need access to the raw GUID bytes or string representation from SDL.
-                        // For now, let's try to proceed. Ideally we'd use `controller.guid().to_string()`
-                        // But rust-sdl2 `GameController` doesn't expose `guid()` directly, `Joystick` does.
-                        // We need to get joystick from controller? Or just use index?
-                        // Actually, Ryujinx uses "0" for keyboard, and GUID for pads.
-                        
-                        // Fallback: use a placeholder or try to get it right.
-                        // Correct logic: Use properties that are available.
                         
                         let is_nintendo = name.to_lowercase().contains("nintendo");
                         
-                        let player_enum = format!("Player{}", player_idx);
+                        let player_enum = format!("Player{}", player_idx_counter);
                         
                         // Determine controller backend - SDL2 is standard for linux
                         let backend = "GamepadSDL2".to_string();
 
-                        if player_idx <= 8 {
-                             configs.push(InputConfig::StandardControllerInputConfig(StandardControllerInputConfig {
-                                Version: 1,
-                                Backend: backend,
-                                Id: guid_string, // This might be wrong, needs checking if GUID matches Ryujinx expectation
-                                PlayerIndex: player_enum,
-                                ControllerType: "ProController".to_string(),
-                                DeadzoneLeft: 0.1,
-                                DeadzoneRight: 0.1,
-                                RangeLeft: 1.0,
-                                RangeRight: 1.0,
-                                TriggerThreshold: 0.5,
-                                LeftJoycon: ControllerJoyconConfig {
-                                    DpadUp: "DpadUp".to_string(),
-                                    DpadDown: "DpadDown".to_string(),
-                                    DpadLeft: "DpadLeft".to_string(),
-                                    DpadRight: "DpadRight".to_string(),
-                                    ButtonMinus: "Minus".to_string(),
-                                    ButtonL: "LeftShoulder".to_string(),
-                                    ButtonZl: "LeftTrigger".to_string(),
-                                    ButtonSl: "SingleLeftTrigger0".to_string(),
-                                    ButtonSr: "SingleRightTrigger0".to_string(),
-                                    ButtonA: None, ButtonB: None, ButtonX: None, ButtonY: None, ButtonPlus: None, ButtonR: None, ButtonZr: None,
-                                },
-                                LeftJoyconStick: ControllerStickConfig {
-                                    Joystick: "Left".to_string(),
-                                    StickButton: "LeftStick".to_string(),
-                                    InvertStickX: false,
-                                    InvertStickY: false,
-                                    Rotate90CW: false,
-                                },
-                                RightJoycon: ControllerJoyconConfig {
-                                    DpadUp: "Unbound".to_string(),
-                                    DpadDown: "Unbound".to_string(),
-                                    DpadLeft: "Unbound".to_string(),
-                                    DpadRight: "Unbound".to_string(),
-                                    ButtonMinus: "Unbound".to_string(),
-                                    ButtonL: "Unbound".to_string(),
-                                    ButtonZl: "Unbound".to_string(),
-                                    ButtonSl: "Unbound".to_string(),
-                                    ButtonSr: "Unbound".to_string(),
-                                    ButtonA: Some(if is_nintendo { "A" } else { "B" }.to_string()),
-                                    ButtonB: Some(if is_nintendo { "B" } else { "A" }.to_string()),
-                                    ButtonX: Some(if is_nintendo { "X" } else { "Y" }.to_string()),
-                                    ButtonY: Some(if is_nintendo { "Y" } else { "X" }.to_string()),
-                                    ButtonPlus: Some("Plus".to_string()),
-                                    ButtonR: Some("RightShoulder".to_string()),
-                                    ButtonZr: Some("RightTrigger".to_string()),
-                                },
-                                RightJoyconStick: ControllerStickConfig {
-                                    Joystick: "Right".to_string(),
-                                    StickButton: "RightStick".to_string(),
-                                    InvertStickX: false,
-                                    InvertStickY: false,
-                                    Rotate90CW: false,
-                                },
-                                Motion: MotionConfig {
-                                    MotionBackend: "GamepadDriver".to_string(),
-                                    EnableMotion: true,
-                                    Sensitivity: 100,
-                                    GyroDeadzone: 1.0,
-                                },
-                                Rumble: RumbleConfig {
-                                    StrongRumble: 1.0,
-                                    WeakRumble: 1.0,
-                                    EnableRumble: true,
-                                },
-                            }));
-                            player_idx += 1;
-                        }
+                        configs.push(InputConfig::StandardControllerInputConfig(StandardControllerInputConfig {
+                            Version: 1,
+                            Backend: backend,
+                            Id: guid_string, // This might be wrong, needs checking if GUID matches Ryujinx expectation
+                            PlayerIndex: player_enum,
+                            ControllerType: "ProController".to_string(),
+                            DeadzoneLeft: 0.1,
+                            DeadzoneRight: 0.1,
+                            RangeLeft: 1.0,
+                            RangeRight: 1.0,
+                            TriggerThreshold: 0.5,
+                            LeftJoycon: ControllerJoyconConfig {
+                                DpadUp: "DpadUp".to_string(),
+                                DpadDown: "DpadDown".to_string(),
+                                DpadLeft: "DpadLeft".to_string(),
+                                DpadRight: "DpadRight".to_string(),
+                                ButtonMinus: "Minus".to_string(),
+                                ButtonL: "LeftShoulder".to_string(),
+                                ButtonZl: "LeftTrigger".to_string(),
+                                ButtonSl: "SingleLeftTrigger0".to_string(),
+                                ButtonSr: "SingleRightTrigger0".to_string(),
+                                ButtonA: None, ButtonB: None, ButtonX: None, ButtonY: None, ButtonPlus: None, ButtonR: None, ButtonZr: None,
+                            },
+                            LeftJoyconStick: ControllerStickConfig {
+                                Joystick: "Left".to_string(),
+                                StickButton: "LeftStick".to_string(),
+                                InvertStickX: false,
+                                InvertStickY: false,
+                                Rotate90CW: false,
+                            },
+                            RightJoycon: ControllerJoyconConfig {
+                                DpadUp: "Unbound".to_string(),
+                                DpadDown: "Unbound".to_string(),
+                                DpadLeft: "Unbound".to_string(),
+                                DpadRight: "Unbound".to_string(),
+                                ButtonMinus: "Unbound".to_string(),
+                                ButtonL: "Unbound".to_string(),
+                                ButtonZl: "Unbound".to_string(),
+                                ButtonSl: "Unbound".to_string(),
+                                ButtonSr: "Unbound".to_string(),
+                                ButtonA: Some(if is_nintendo { "A" } else { "B" }.to_string()),
+                                ButtonB: Some(if is_nintendo { "B" } else { "A" }.to_string()),
+                                ButtonX: Some(if is_nintendo { "X" } else { "Y" }.to_string()),
+                                ButtonY: Some(if is_nintendo { "Y" } else { "X" }.to_string()),
+                                ButtonPlus: Some("Plus".to_string()),
+                                ButtonR: Some("RightShoulder".to_string()),
+                                ButtonZr: Some("RightTrigger".to_string()),
+                            },
+                            RightJoyconStick: ControllerStickConfig {
+                                Joystick: "Right".to_string(),
+                                StickButton: "RightStick".to_string(),
+                                InvertStickX: false,
+                                InvertStickY: false,
+                                Rotate90CW: false,
+                            },
+                            Motion: MotionConfig {
+                                MotionBackend: "GamepadDriver".to_string(),
+                                EnableMotion: true,
+                                Sensitivity: 100,
+                                GyroDeadzone: 1.0,
+                            },
+                            Rumble: RumbleConfig {
+                                StrongRumble: 1.0,
+                                WeakRumble: 1.0,
+                                EnableRumble: true,
+                            },
+                        }));
+                        player_idx_counter += 1;
                     }
                 }
             }
+        }
+
+        // 2. Assign Keyboard to next available slot (or Player1 if no controllers)
+        // If we have controller(s), keyboard goes to next slot (e.g. Player2)
+        // If no controllers, keyboard is Player1.
+        if player_idx_counter <= 8 {
+             let keyboard_player = format!("Player{}", player_idx_counter);
+             configs.push(InputConfig::StandardKeyboardInputConfig(
+                Self::create_default_keyboard_config(&keyboard_player)
+            ));
         }
         
         configs
