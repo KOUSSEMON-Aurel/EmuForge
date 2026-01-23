@@ -343,6 +343,9 @@ impl EmulatorPlugin for RyujinxPlugin {
     fn prepare_launch_config(&self, rom_path: &Path, _output_dir: &Path) -> Result<LaunchConfig> {
         let binary = self.find_binary().context("Failed to locate Ryujinx binary")?;
         
+        // Update input configuration (Auto-detect controllers) on every launch
+        Self::update_ryujinx_input_config().ok();
+
         let args = vec![];
 
         Ok(LaunchConfig {
