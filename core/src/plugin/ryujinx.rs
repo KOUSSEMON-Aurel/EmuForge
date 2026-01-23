@@ -185,7 +185,7 @@ impl RyujinxPlugin {
         // This can happen if SDL2 init conflicts with other libraries in the main process.
         let handle = std::thread::spawn(|| {
             let mut configs = Vec::new();
-            let player_idx_counter = 1;
+            let mut player_idx_counter = 1;
 
             // 1. Scan SDL2 Controllers
             if let Ok(sdl_context) = sdl2::init() {
@@ -217,8 +217,7 @@ impl RyujinxPlugin {
                             println!("🎮 Found Controller: '{}' (GUID: {})", name, ryujinx_id); 
                             
                             let is_nintendo = name.to_lowercase().contains("nintendo");
-                            // ALL controllers go to Player1 (solo game mode)
-                            let player_enum = "Player1".to_string();
+                            let player_enum = format!("Player{}", player_idx_counter);
                             let backend = "GamepadSDL2".to_string();
 
                             configs.push(InputConfig::StandardControllerInputConfig(StandardControllerInputConfig {
@@ -289,16 +288,19 @@ impl RyujinxPlugin {
                                     enable_rumble: true,
                                 },
                             }));
-                            // Don't increment - we want keyboard ALSO on Player1
+                            player_idx_counter += 1;
                         }
                     }
                 }
             }
 
-            // 2. Keyboard is ALWAYS Player1 (so solo games work with or without controller)
-            configs.push(InputConfig::StandardKeyboardInputConfig(
-                Self::create_default_keyboard_config("Player1")
-            ));
+            // 2. Assign Keyboard to next available slot (or Player1 if no controllers)
+            if player_idx_counter <= 8 {
+                 let keyboard_player = format!("Player{}", player_idx_counter);
+                 configs.push(InputConfig::StandardKeyboardInputConfig(
+                    Self::create_default_keyboard_config(&keyboard_player)
+                ));
+            }
             
             configs
         });
