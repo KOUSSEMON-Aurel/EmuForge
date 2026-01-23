@@ -161,6 +161,22 @@ impl RyujinxPlugin {
                 stick_right: "L".to_string(),
                 stick_button: "H".to_string(),
             },
+            deadzone_left: 0.1,
+            deadzone_right: 0.1,
+            range_left: 1.0,
+            range_right: 1.0,
+            trigger_threshold: 0.5,
+            motion: MotionConfig {
+                motion_backend: "GamepadDriver".to_string(),
+                enable_motion: true, // Ryujinx default is true even for keyboard usually, but let's stick to standard structure
+                sensitivity: 100,
+                gyro_deadzone: 1.0,
+            },
+            rumble: RumbleConfig {
+                strong_rumble: 1.0,
+                weak_rumble: 1.0,
+                enable_rumble: false, // DISABLE RUMBLE FOR KEYBOARD to allow game to boot without crash
+            },
         }
     }
 
@@ -687,6 +703,14 @@ pub struct StandardKeyboardInputConfig {
     pub left_joycon_stick: KeyboardStickConfig,
     pub right_joycon: KeyboardJoyconConfig,
     pub right_joycon_stick: KeyboardStickConfig,
+    // Fix: Add missing fields that cause NullReferenceException if omitted
+    pub deadzone_left: f32,
+    pub deadzone_right: f32,
+    pub range_left: f32,
+    pub range_right: f32,
+    pub trigger_threshold: f32,
+    pub motion: MotionConfig,
+    pub rumble: RumbleConfig,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
