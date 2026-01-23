@@ -293,34 +293,40 @@ impl RyujinxPlugin {
     }
 
     fn update_ryujinx_input_config() -> Result<()> {
-        let config_dir = dirs::config_dir().ok_or(anyhow::anyhow!("No config dir"))?.join("Ryujinx");
+        let config_dir = if cfg!(target_os = "windows") {
+            dirs::data_dir().map(|d| d.join("Ryujinx"))
+        } else {
+            dirs::config_dir().map(|d| d.join("Ryujinx"))
+        }.ok_or_else(|| anyhow::anyhow!("Could not determine Ryujinx config directory"))?;
+
         let config_path = config_dir.join("Config.json");
+        println!("🔧 Updating Ryujinx config at: {:?}", config_path);
         
         if config_path.exists() {
             let content = fs::read_to_string(&config_path)?;
-            let mut json: serde_json::Value = serde_json::from_str(&content)?;
             
-            // Generate Input Configs
-            let new_input_configs = Self::generate_input_config();
+            // Parse as generic JSON to preserve other settings
+            let mut json_config: serde_json::Value = serde_json::from_str(&content)
+                .context("Failed to parse Ryujinx Config.json")?;
             
-            // Convert to Value using serde
-            let input_config_value = serde_json::to_value(new_input_configs)?;
+            // Generate new input config
+            let new_input_config = Self::generate_input_config();
             
-            // Update the InputConfig field at root level
-            if let Some(obj) = json.as_object_mut() {
-                obj.insert("InputConfig".to_string(), input_config_value);
-                
-                // Also ensure EnableDockedMode is true for best visuals
-                // obj.insert("EnableDockedMode".to_string(), serde_json::Value::Bool(true));
-            }
+            // Update "input_config" field
+            json_config["input_config"] = serde_json::to_value(new_input_config)?;
             
-            fs::write(config_path, serde_json::to_string_pretty(&json)?)?;
-            println!("🎮 Updated Ryujinx InputConfig with detected controllers.");
+            // Write back
+            let new_content = serde_json::to_string_pretty(&json_config)?;
+            fs::write(&config_path, new_content)?;
+            
+            println!("✅ Updated Ryujinx InputConfig with detected controllers.");
         } else {
-             println!("⚠️ Ryujinx Config.json not found, skipping input auto-config.");
+            println!("⚠️ Ryujinx Config.json not found at {:?}, skipping input config update.", config_path);
         }
+
         Ok(())
     }
+
 }
 
 impl EmulatorPlugin for RyujinxPlugin {
