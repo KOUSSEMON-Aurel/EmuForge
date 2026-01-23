@@ -221,7 +221,7 @@ impl RyujinxPlugin {
                                     dpad_down: "DpadDown".to_string(),
                                     dpad_left: "DpadLeft".to_string(),
                                     dpad_right: "DpadRight".to_string(),
-                                    button_minus: "Minus".to_string(),
+                                    button_minus: "Back".to_string(), // Mapped to Back on standard gamepads
                                     button_l: "LeftShoulder".to_string(),
                                     button_zl: "LeftTrigger".to_string(),
                                     button_sl: "SingleLeftTrigger0".to_string(),
@@ -249,7 +249,7 @@ impl RyujinxPlugin {
                                     button_b: Some(if is_nintendo { "B" } else { "A" }.to_string()),
                                     button_x: Some(if is_nintendo { "X" } else { "Y" }.to_string()),
                                     button_y: Some(if is_nintendo { "Y" } else { "X" }.to_string()),
-                                    button_plus: Some("Plus".to_string()),
+                                    button_plus: Some("Start".to_string()), // Mapped to Start on standard gamepads
                                     button_r: Some("RightShoulder".to_string()),
                                     button_zr: Some("RightTrigger".to_string()),
                                 },
