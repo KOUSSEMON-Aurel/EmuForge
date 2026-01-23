@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use std::fs;
 use zip::ZipArchive;
 use serde::{Serialize, Deserialize};
-use sdl2::controller::GameController;
+
 
 pub struct RyujinxPlugin {
     pub custom_binary_path: Option<PathBuf>,
@@ -111,54 +111,54 @@ impl RyujinxPlugin {
 
     fn create_default_keyboard_config(player_index: &str) -> StandardKeyboardInputConfig {
         StandardKeyboardInputConfig {
-            Version: 1,
-            Backend: "WindowKeyboard".to_string(),
-            Id: "0".to_string(),
-            PlayerIndex: player_index.to_string(),
-            ControllerType: "JoyconPair".to_string(),
-            LeftJoycon: KeyboardJoyconConfig {
-                DpadUp: "Up".to_string(),
-                DpadDown: "Down".to_string(),
-                DpadLeft: "Left".to_string(),
-                DpadRight: "Right".to_string(),
-                ButtonMinus: "Minus".to_string(),
-                ButtonL: "E".to_string(),
-                ButtonZl: "Q".to_string(),
-                ButtonSl: "Unbound".to_string(),
-                ButtonSr: "Unbound".to_string(),
-                ButtonA: None, ButtonB: None, ButtonX: None, ButtonY: None, ButtonPlus: None, ButtonR: None, ButtonZr: None,
+            version: 1,
+            backend: "WindowKeyboard".to_string(),
+            id: "0".to_string(),
+            player_index: player_index.to_string(),
+            controller_type: "JoyconPair".to_string(),
+            left_joycon: KeyboardJoyconConfig {
+                dpad_up: "Up".to_string(),
+                dpad_down: "Down".to_string(),
+                dpad_left: "Left".to_string(),
+                dpad_right: "Right".to_string(),
+                button_minus: "Minus".to_string(),
+                button_l: "E".to_string(),
+                button_zl: "Q".to_string(),
+                button_sl: "Unbound".to_string(),
+                button_sr: "Unbound".to_string(),
+                button_a: None, button_b: None, button_x: None, button_y: None, button_plus: None, button_r: None, button_zr: None,
             },
-            LeftJoyconStick: KeyboardStickConfig {
-                StickUp: "W".to_string(),
-                StickDown: "S".to_string(),
-                StickLeft: "A".to_string(),
-                StickRight: "D".to_string(),
-                StickButton: "F".to_string(),
+            left_joycon_stick: KeyboardStickConfig {
+                stick_up: "W".to_string(),
+                stick_down: "S".to_string(),
+                stick_left: "A".to_string(),
+                stick_right: "D".to_string(),
+                stick_button: "F".to_string(),
             },
-            RightJoycon: KeyboardJoyconConfig {
-                DpadUp: "Unbound".to_string(),
-                DpadDown: "Unbound".to_string(),
-                DpadLeft: "Unbound".to_string(),
-                DpadRight: "Unbound".to_string(),
-                ButtonMinus: "Unbound".to_string(),
-                ButtonL: "Unbound".to_string(),
-                ButtonZl: "Unbound".to_string(),
-                ButtonSl: "Unbound".to_string(),
-                ButtonSr: "Unbound".to_string(),
-                ButtonA: Some("Z".to_string()),
-                ButtonB: Some("X".to_string()),
-                ButtonX: Some("C".to_string()),
-                ButtonY: Some("V".to_string()),
-                ButtonPlus: Some("Plus".to_string()),
-                ButtonR: Some("U".to_string()),
-                ButtonZr: Some("O".to_string()),
+            right_joycon: KeyboardJoyconConfig {
+                dpad_up: "Unbound".to_string(),
+                dpad_down: "Unbound".to_string(),
+                dpad_left: "Unbound".to_string(),
+                dpad_right: "Unbound".to_string(),
+                button_minus: "Unbound".to_string(),
+                button_l: "Unbound".to_string(),
+                button_zl: "Unbound".to_string(),
+                button_sl: "Unbound".to_string(),
+                button_sr: "Unbound".to_string(),
+                button_a: Some("Z".to_string()),
+                button_b: Some("X".to_string()),
+                button_x: Some("C".to_string()),
+                button_y: Some("V".to_string()),
+                button_plus: Some("Plus".to_string()),
+                button_r: Some("U".to_string()),
+                button_zr: Some("O".to_string()),
             },
-            RightJoyconStick: KeyboardStickConfig {
-                StickUp: "I".to_string(),
-                StickDown: "K".to_string(),
-                StickLeft: "J".to_string(),
-                StickRight: "L".to_string(),
-                StickButton: "H".to_string(),
+            right_joycon_stick: KeyboardStickConfig {
+                stick_up: "I".to_string(),
+                stick_down: "K".to_string(),
+                stick_left: "J".to_string(),
+                stick_right: "L".to_string(),
+                stick_button: "H".to_string(),
             },
         }
     }
@@ -178,11 +178,17 @@ impl RyujinxPlugin {
                          if player_idx_counter > 8 { break; }
 
                         let name = controller.name();
-                                                
-                        // Format GUID as string for Ryujinx (standard hex format usually)
-                        // Note: to_string() on GUID usually returns standard UUID format. Ryujinx needs raw hex sometimes?
-                        // Let's assume to_string() is correct for now.
-                        let guid_string = controller.instance_id().to_string(); 
+                        
+                        // Fix: Ryujinx expects a standard SDL2 GUID string (hex).
+                        // `instance_id()` returns a runtime integer ID, which is WRONG for Ryujinx config.
+                        // We need the hardware GUID.
+                        // Rust-SDL2 GameController doesn't expose .guid() directly on all versions,
+                        // but .mapping() returns a string like "030000005e0400008e02000009010000,Controller Name,..."
+                        // The first part IS the GUID.
+                        let mapping = controller.mapping();
+                        let guid_string = mapping.split(',').next().unwrap_or("0").to_string();
+
+                        println!("🎮 Found Controller: '{}' (GUID: {})", name, guid_string); 
                         
                         let is_nintendo = name.to_lowercase().contains("nintendo");
                         
@@ -192,70 +198,70 @@ impl RyujinxPlugin {
                         let backend = "GamepadSDL2".to_string();
 
                         configs.push(InputConfig::StandardControllerInputConfig(StandardControllerInputConfig {
-                            Version: 1,
-                            Backend: backend,
-                            Id: guid_string, // This might be wrong, needs checking if GUID matches Ryujinx expectation
-                            PlayerIndex: player_enum,
-                            ControllerType: "ProController".to_string(),
-                            DeadzoneLeft: 0.1,
-                            DeadzoneRight: 0.1,
-                            RangeLeft: 1.0,
-                            RangeRight: 1.0,
-                            TriggerThreshold: 0.5,
-                            LeftJoycon: ControllerJoyconConfig {
-                                DpadUp: "DpadUp".to_string(),
-                                DpadDown: "DpadDown".to_string(),
-                                DpadLeft: "DpadLeft".to_string(),
-                                DpadRight: "DpadRight".to_string(),
-                                ButtonMinus: "Minus".to_string(),
-                                ButtonL: "LeftShoulder".to_string(),
-                                ButtonZl: "LeftTrigger".to_string(),
-                                ButtonSl: "SingleLeftTrigger0".to_string(),
-                                ButtonSr: "SingleRightTrigger0".to_string(),
-                                ButtonA: None, ButtonB: None, ButtonX: None, ButtonY: None, ButtonPlus: None, ButtonR: None, ButtonZr: None,
+                            version: 1,
+                            backend: backend,
+                            id: guid_string, // This might be wrong, needs checking if GUID matches Ryujinx expectation
+                            player_index: player_enum,
+                            controller_type: "ProController".to_string(),
+                            deadzone_left: 0.1,
+                            deadzone_right: 0.1,
+                            range_left: 1.0,
+                            range_right: 1.0,
+                            trigger_threshold: 0.5,
+                            left_joycon: ControllerJoyconConfig {
+                                dpad_up: "DpadUp".to_string(),
+                                dpad_down: "DpadDown".to_string(),
+                                dpad_left: "DpadLeft".to_string(),
+                                dpad_right: "DpadRight".to_string(),
+                                button_minus: "Minus".to_string(),
+                                button_l: "LeftShoulder".to_string(),
+                                button_zl: "LeftTrigger".to_string(),
+                                button_sl: "SingleLeftTrigger0".to_string(),
+                                button_sr: "SingleRightTrigger0".to_string(),
+                                button_a: None, button_b: None, button_x: None, button_y: None, button_plus: None, button_r: None, button_zr: None,
                             },
-                            LeftJoyconStick: ControllerStickConfig {
-                                Joystick: "Left".to_string(),
-                                StickButton: "LeftStick".to_string(),
-                                InvertStickX: false,
-                                InvertStickY: false,
-                                Rotate90CW: false,
+                            left_joycon_stick: ControllerStickConfig {
+                                joystick: "Left".to_string(),
+                                stick_button: "LeftStick".to_string(),
+                                invert_stick_x: false,
+                                invert_stick_y: false,
+                                rotate90_cw: false,
                             },
-                            RightJoycon: ControllerJoyconConfig {
-                                DpadUp: "Unbound".to_string(),
-                                DpadDown: "Unbound".to_string(),
-                                DpadLeft: "Unbound".to_string(),
-                                DpadRight: "Unbound".to_string(),
-                                ButtonMinus: "Unbound".to_string(),
-                                ButtonL: "Unbound".to_string(),
-                                ButtonZl: "Unbound".to_string(),
-                                ButtonSl: "Unbound".to_string(),
-                                ButtonSr: "Unbound".to_string(),
-                                ButtonA: Some(if is_nintendo { "A" } else { "B" }.to_string()),
-                                ButtonB: Some(if is_nintendo { "B" } else { "A" }.to_string()),
-                                ButtonX: Some(if is_nintendo { "X" } else { "Y" }.to_string()),
-                                ButtonY: Some(if is_nintendo { "Y" } else { "X" }.to_string()),
-                                ButtonPlus: Some("Plus".to_string()),
-                                ButtonR: Some("RightShoulder".to_string()),
-                                ButtonZr: Some("RightTrigger".to_string()),
+                            right_joycon: ControllerJoyconConfig {
+                                dpad_up: "Unbound".to_string(),
+                                dpad_down: "Unbound".to_string(),
+                                dpad_left: "Unbound".to_string(),
+                                dpad_right: "Unbound".to_string(),
+                                button_minus: "Unbound".to_string(),
+                                button_l: "Unbound".to_string(),
+                                button_zl: "Unbound".to_string(),
+                                button_sl: "Unbound".to_string(),
+                                button_sr: "Unbound".to_string(),
+                                button_a: Some(if is_nintendo { "A" } else { "B" }.to_string()),
+                                button_b: Some(if is_nintendo { "B" } else { "A" }.to_string()),
+                                button_x: Some(if is_nintendo { "X" } else { "Y" }.to_string()),
+                                button_y: Some(if is_nintendo { "Y" } else { "X" }.to_string()),
+                                button_plus: Some("Plus".to_string()),
+                                button_r: Some("RightShoulder".to_string()),
+                                button_zr: Some("RightTrigger".to_string()),
                             },
-                            RightJoyconStick: ControllerStickConfig {
-                                Joystick: "Right".to_string(),
-                                StickButton: "RightStick".to_string(),
-                                InvertStickX: false,
-                                InvertStickY: false,
-                                Rotate90CW: false,
+                            right_joycon_stick: ControllerStickConfig {
+                                joystick: "Right".to_string(),
+                                stick_button: "RightStick".to_string(),
+                                invert_stick_x: false,
+                                invert_stick_y: false,
+                                rotate90_cw: false,
                             },
-                            Motion: MotionConfig {
-                                MotionBackend: "GamepadDriver".to_string(),
-                                EnableMotion: true,
-                                Sensitivity: 100,
-                                GyroDeadzone: 1.0,
+                            motion: MotionConfig {
+                                motion_backend: "GamepadDriver".to_string(),
+                                enable_motion: true,
+                                sensitivity: 100,
+                                gyro_deadzone: 1.0,
                             },
-                            Rumble: RumbleConfig {
-                                StrongRumble: 1.0,
-                                WeakRumble: 1.0,
-                                EnableRumble: true,
+                            rumble: RumbleConfig {
+                                strong_rumble: 1.0,
+                                weak_rumble: 1.0,
+                                enable_rumble: true,
                             },
                         }));
                         player_idx_counter += 1;
@@ -654,124 +660,132 @@ pub enum InputConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
 pub struct StandardKeyboardInputConfig {
-    pub Version: u32,
-    pub Backend: String, // "WindowKeyboard"
-    pub Id: String,      // "0"
-    pub PlayerIndex: String,
-    pub ControllerType: String,
-    pub LeftJoycon: KeyboardJoyconConfig,
-    pub LeftJoyconStick: KeyboardStickConfig,
-    pub RightJoycon: KeyboardJoyconConfig,
-    pub RightJoyconStick: KeyboardStickConfig,
+    pub version: u32,
+    pub backend: String, // "WindowKeyboard"
+    pub id: String,      // "0"
+    pub player_index: String,
+    pub controller_type: String,
+    pub left_joycon: KeyboardJoyconConfig,
+    pub left_joycon_stick: KeyboardStickConfig,
+    pub right_joycon: KeyboardJoyconConfig,
+    pub right_joycon_stick: KeyboardStickConfig,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
 pub struct StandardControllerInputConfig {
-    pub Version: u32,
-    pub Backend: String, // "GamepadSDL2"
-    pub Id: String,      // GUID
-    pub PlayerIndex: String,
-    pub ControllerType: String,
-    pub DeadzoneLeft: f32,
-    pub DeadzoneRight: f32,
-    pub RangeLeft: f32,
-    pub RangeRight: f32,
-    pub TriggerThreshold: f32,
-    pub LeftJoycon: ControllerJoyconConfig,
-    pub LeftJoyconStick: ControllerStickConfig,
-    pub RightJoycon: ControllerJoyconConfig,
-    pub RightJoyconStick: ControllerStickConfig,
-    pub Motion: MotionConfig,
-    pub Rumble: RumbleConfig,
+    pub version: u32,
+    pub backend: String, // "GamepadSDL2"
+    pub id: String,      // GUID
+    pub player_index: String,
+    pub controller_type: String,
+    pub deadzone_left: f32,
+    pub deadzone_right: f32,
+    pub range_left: f32,
+    pub range_right: f32,
+    pub trigger_threshold: f32,
+    pub left_joycon: ControllerJoyconConfig,
+    pub left_joycon_stick: ControllerStickConfig,
+    pub right_joycon: ControllerJoyconConfig,
+    pub right_joycon_stick: ControllerStickConfig,
+    pub motion: MotionConfig,
+    pub rumble: RumbleConfig,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
 pub struct KeyboardJoyconConfig {
-    pub DpadUp: String,
-    pub DpadDown: String,
-    pub DpadLeft: String,
-    pub DpadRight: String,
-    pub ButtonMinus: String,
-    pub ButtonL: String,
-    pub ButtonZl: String,
-    pub ButtonSl: String,
-    pub ButtonSr: String,
+    pub dpad_up: String,
+    pub dpad_down: String,
+    pub dpad_left: String,
+    pub dpad_right: String,
+    pub button_minus: String,
+    pub button_l: String,
+    pub button_zl: String,
+    pub button_sl: String,
+    pub button_sr: String,
     // Right Joycon specific
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ButtonA: Option<String>,
+    pub button_a: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ButtonB: Option<String>,
+    pub button_b: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ButtonX: Option<String>,
+    pub button_x: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ButtonY: Option<String>,
+    pub button_y: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ButtonPlus: Option<String>,
+    pub button_plus: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ButtonR: Option<String>,
+    pub button_r: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ButtonZr: Option<String>,
+    pub button_zr: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
 pub struct KeyboardStickConfig {
-    pub StickUp: String,
-    pub StickDown: String,
-    pub StickLeft: String,
-    pub StickRight: String,
-    pub StickButton: String,
+    pub stick_up: String,
+    pub stick_down: String,
+    pub stick_left: String,
+    pub stick_right: String,
+    pub stick_button: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
 pub struct ControllerJoyconConfig {
-    pub DpadUp: String,
-    pub DpadDown: String,
-    pub DpadLeft: String,
-    pub DpadRight: String,
-    pub ButtonMinus: String,
-    pub ButtonL: String,
-    pub ButtonZl: String,
-    pub ButtonSl: String,
-    pub ButtonSr: String,
+    pub dpad_up: String,
+    pub dpad_down: String,
+    pub dpad_left: String,
+    pub dpad_right: String,
+    pub button_minus: String,
+    pub button_l: String,
+    pub button_zl: String,
+    pub button_sl: String,
+    pub button_sr: String,
     // Right Joycon specific
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ButtonA: Option<String>,
+    pub button_a: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ButtonB: Option<String>,
+    pub button_b: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ButtonX: Option<String>,
+    pub button_x: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ButtonY: Option<String>,
+    pub button_y: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ButtonPlus: Option<String>,
+    pub button_plus: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ButtonR: Option<String>,
+    pub button_r: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub ButtonZr: Option<String>,
+    pub button_zr: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
 pub struct ControllerStickConfig {
-    pub Joystick: String, // "Left" or "Right"
-    pub StickButton: String,
-    pub InvertStickX: bool,
-    pub InvertStickY: bool,
-    pub Rotate90CW: bool,
+    pub joystick: String, // "Left" or "Right"
+    pub stick_button: String,
+    pub invert_stick_x: bool,
+    pub invert_stick_y: bool,
+    pub rotate90_cw: bool,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
 pub struct MotionConfig {
-    pub MotionBackend: String, // "GamepadDriver"
-    pub EnableMotion: bool,
-    pub Sensitivity: i32,
-    pub GyroDeadzone: f32,
+    pub motion_backend: String, // "GamepadDriver"
+    pub enable_motion: bool,
+    pub sensitivity: i32,
+    pub gyro_deadzone: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "PascalCase")]
 pub struct RumbleConfig {
-    pub StrongRumble: f32,
-    pub WeakRumble: f32,
-    pub EnableRumble: bool,
+    pub strong_rumble: f32,
+    pub weak_rumble: f32,
+    pub enable_rumble: bool,
 }
 
