@@ -717,23 +717,25 @@ pub struct StandardKeyboardInputConfig {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct StandardControllerInputConfig {
-    pub version: u32,
-    pub backend: String, // "GamepadSDL2"
-    pub id: String,      // GUID
-    pub name: String,    // Added
-    pub player_index: String,
-    pub controller_type: String,
+    // CRITICAL: Field order matters for JSON serialization!
+    // Ryujinx expects this exact order
+    pub left_joycon: ControllerJoyconConfig,
+    pub right_joycon: ControllerJoyconConfig,
+    pub left_joycon_stick: ControllerStickConfig,
+    pub right_joycon_stick: ControllerStickConfig,
     pub deadzone_left: f32,
     pub deadzone_right: f32,
     pub range_left: f32,
     pub range_right: f32,
     pub trigger_threshold: f32,
-    pub left_joycon: ControllerJoyconConfig,
-    pub left_joycon_stick: ControllerStickConfig,
-    pub right_joycon: ControllerJoyconConfig,
-    pub right_joycon_stick: ControllerStickConfig,
     pub motion: MotionConfig,
     pub rumble: RumbleConfig,
+    pub version: u32,
+    pub backend: String, // "GamepadSDL2"
+    pub id: String,      // GUID
+    pub name: String,
+    pub controller_type: String,
+    pub player_index: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
