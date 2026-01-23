@@ -114,6 +114,7 @@ impl RyujinxPlugin {
             version: 1,
             backend: "WindowKeyboard".to_string(),
             id: "0".to_string(),
+            name: "Workaround Keyboard".to_string(), // Arbitrary name for keyboard
             player_index: player_index.to_string(),
             controller_type: "JoyconPair".to_string(),
             left_joycon: KeyboardJoyconConfig {
@@ -180,15 +181,24 @@ impl RyujinxPlugin {
                         let name = controller.name();
                         
                         // Fix: Ryujinx expects a standard SDL2 GUID string (hex).
-                        // `instance_id()` returns a runtime integer ID, which is WRONG for Ryujinx config.
-                        // We need the hardware GUID.
-                        // Rust-SDL2 GameController doesn't expose .guid() directly on all versions,
-                        // but .mapping() returns a string like "030000005e0400008e02000009010000,Controller Name,..."
-                        // The first part IS the GUID.
+                        // ...
                         let mapping = controller.mapping();
-                        let guid_string = mapping.split(',').next().unwrap_or("0").to_string();
+                        let raw_guid = mapping.split(',').next().unwrap_or("0").to_string();
 
-                        println!("🎮 Found Controller: '{}' (GUID: {})", name, guid_string); 
+                        // Format GUID with dashes for Ryujinx: 8-4-4-4-12
+                        // Input:  030000005e0400008e02000009010000
+                        // Output: 03000000-5e04-0000-8e02-000009010000
+                        let formatted_guid = if raw_guid.len() == 32 {
+                            format!("{}-{}-{}-{}-{}", 
+                                &raw_guid[0..8], &raw_guid[8..12], &raw_guid[12..16], &raw_guid[16..20], &raw_guid[20..32])
+                        } else {
+                            raw_guid.clone()
+                        };
+
+                        // Ryujinx ID format: "{index}-{formatted_guid}"
+                        let ryujinx_id = format!("{}-{}", i, formatted_guid);
+
+                        println!("🎮 Found Controller: '{}' (Raw GUID: {}, Final ID: {})", name, raw_guid, ryujinx_id); 
                         
                         let is_nintendo = name.to_lowercase().contains("nintendo");
                         
@@ -200,7 +210,8 @@ impl RyujinxPlugin {
                         configs.push(InputConfig::StandardControllerInputConfig(StandardControllerInputConfig {
                             version: 1,
                             backend: backend,
-                            id: guid_string, // This might be wrong, needs checking if GUID matches Ryujinx expectation
+                            id: ryujinx_id,
+                            name: name,
                             player_index: player_enum,
                             controller_type: "ProController".to_string(),
                             deadzone_left: 0.1,
@@ -653,18 +664,18 @@ exec $COMMAND "$SCRIPT_DIR/$RYUJINX_BIN" "$@"
 // === Input Configuration Structures ===
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(tag = "$type")]
+#[serde(untagged)]
 pub enum InputConfig {
     StandardKeyboardInputConfig(StandardKeyboardInputConfig),
     StandardControllerInputConfig(StandardControllerInputConfig),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")]
 pub struct StandardKeyboardInputConfig {
     pub version: u32,
     pub backend: String, // "WindowKeyboard"
     pub id: String,      // "0"
+    pub name: String,    // Added
     pub player_index: String,
     pub controller_type: String,
     pub left_joycon: KeyboardJoyconConfig,
@@ -674,11 +685,11 @@ pub struct StandardKeyboardInputConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")]
 pub struct StandardControllerInputConfig {
     pub version: u32,
     pub backend: String, // "GamepadSDL2"
     pub id: String,      // GUID
+    pub name: String,    // Added
     pub player_index: String,
     pub controller_type: String,
     pub deadzone_left: f32,
@@ -695,7 +706,6 @@ pub struct StandardControllerInputConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")]
 pub struct KeyboardJoyconConfig {
     pub dpad_up: String,
     pub dpad_down: String,
@@ -724,7 +734,6 @@ pub struct KeyboardJoyconConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")]
 pub struct KeyboardStickConfig {
     pub stick_up: String,
     pub stick_down: String,
@@ -734,7 +743,6 @@ pub struct KeyboardStickConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")]
 pub struct ControllerJoyconConfig {
     pub dpad_up: String,
     pub dpad_down: String,
@@ -763,7 +771,6 @@ pub struct ControllerJoyconConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")]
 pub struct ControllerStickConfig {
     pub joystick: String, // "Left" or "Right"
     pub stick_button: String,
@@ -773,7 +780,6 @@ pub struct ControllerStickConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")]
 pub struct MotionConfig {
     pub motion_backend: String, // "GamepadDriver"
     pub enable_motion: bool,
@@ -782,7 +788,6 @@ pub struct MotionConfig {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "PascalCase")]
 pub struct RumbleConfig {
     pub strong_rumble: f32,
     pub weak_rumble: f32,
