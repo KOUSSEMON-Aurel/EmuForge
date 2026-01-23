@@ -165,133 +165,131 @@ impl RyujinxPlugin {
     }
 
     fn generate_input_config() -> Vec<InputConfig> {
-        let mut configs = Vec::new();
-        let mut player_idx_counter = 1;
+        // Run SDL2 in a separate thread to avoid memory corruption issues (free(): corrupted unsorted chunks)
+        // This can happen if SDL2 init conflicts with other libraries in the main process.
+        let handle = std::thread::spawn(|| {
+            let mut configs = Vec::new();
+            let mut player_idx_counter = 1;
 
-        // 1. Scan SDL2 Controllers
-        if let Ok(sdl_context) = sdl2::init() {
-            if let Ok(game_controller_subsystem) = sdl_context.game_controller() {
-                let available_joysticks = game_controller_subsystem.num_joysticks().unwrap_or(0);
-                
-                for i in 0..available_joysticks {
-                    if let Ok(controller) = game_controller_subsystem.open(i) {
-                         // Max 8 players
-                         if player_idx_counter > 8 { break; }
+            // 1. Scan SDL2 Controllers
+            if let Ok(sdl_context) = sdl2::init() {
+                if let Ok(game_controller_subsystem) = sdl_context.game_controller() {
+                    let available_joysticks = game_controller_subsystem.num_joysticks().unwrap_or(0);
+                    
+                    for i in 0..available_joysticks {
+                        if let Ok(controller) = game_controller_subsystem.open(i) {
+                             // Max 8 players
+                             if player_idx_counter > 8 { break; }
 
-                        let name = controller.name();
-                        
-                        // Fix: Ryujinx expects a standard SDL2 GUID string (hex).
-                        // ...
-                        let mapping = controller.mapping();
-                        let raw_guid = mapping.split(',').next().unwrap_or("0").to_string();
+                            let name = controller.name();
+                            
+                            // Ryujinx expects a standard SDL2 GUID string (hex).
+                            let mapping = controller.mapping();
+                            let raw_guid = mapping.split(',').next().unwrap_or("0").to_string();
 
-                        // Format GUID with dashes for Ryujinx: 8-4-4-4-12
-                        // Input:  030000005e0400008e02000009010000
-                        // Output: 03000000-5e04-0000-8e02-000009010000
-                        let formatted_guid = if raw_guid.len() == 32 {
-                            format!("{}-{}-{}-{}-{}", 
-                                &raw_guid[0..8], &raw_guid[8..12], &raw_guid[12..16], &raw_guid[16..20], &raw_guid[20..32])
-                        } else {
-                            raw_guid.clone()
-                        };
+                            // Format GUID with dashes for Ryujinx: 8-4-4-4-12
+                            let formatted_guid = if raw_guid.len() == 32 {
+                                format!("{}-{}-{}-{}-{}", 
+                                    &raw_guid[0..8], &raw_guid[8..12], &raw_guid[12..16], &raw_guid[16..20], &raw_guid[20..32])
+                            } else {
+                                raw_guid.clone()
+                            };
 
-                        // Ryujinx ID format: "{index}-{formatted_guid}"
-                        let ryujinx_id = format!("{}-{}", i, formatted_guid);
+                            // Ryujinx ID format: "{index}-{formatted_guid}"
+                            let ryujinx_id = format!("{}-{}", i, formatted_guid);
 
-                        println!("🎮 Found Controller: '{}' (Raw GUID: {}, Final ID: {})", name, raw_guid, ryujinx_id); 
-                        
-                        let is_nintendo = name.to_lowercase().contains("nintendo");
-                        
-                        let player_enum = format!("Player{}", player_idx_counter);
-                        
-                        // Determine controller backend - SDL2 is standard for linux
-                        let backend = "GamepadSDL2".to_string();
+                            println!("🎮 Found Controller: '{}' (Raw GUID: {}, Final ID: {})", name, raw_guid, ryujinx_id); 
+                            
+                            let is_nintendo = name.to_lowercase().contains("nintendo");
+                            let player_enum = format!("Player{}", player_idx_counter);
+                            let backend = "GamepadSDL2".to_string();
 
-                        configs.push(InputConfig::StandardControllerInputConfig(StandardControllerInputConfig {
-                            version: 1,
-                            backend: backend,
-                            id: ryujinx_id,
-                            name: name,
-                            player_index: player_enum,
-                            controller_type: "ProController".to_string(),
-                            deadzone_left: 0.1,
-                            deadzone_right: 0.1,
-                            range_left: 1.0,
-                            range_right: 1.0,
-                            trigger_threshold: 0.5,
-                            left_joycon: ControllerJoyconConfig {
-                                dpad_up: "DpadUp".to_string(),
-                                dpad_down: "DpadDown".to_string(),
-                                dpad_left: "DpadLeft".to_string(),
-                                dpad_right: "DpadRight".to_string(),
-                                button_minus: "Minus".to_string(),
-                                button_l: "LeftShoulder".to_string(),
-                                button_zl: "LeftTrigger".to_string(),
-                                button_sl: "SingleLeftTrigger0".to_string(),
-                                button_sr: "SingleRightTrigger0".to_string(),
-                                button_a: None, button_b: None, button_x: None, button_y: None, button_plus: None, button_r: None, button_zr: None,
-                            },
-                            left_joycon_stick: ControllerStickConfig {
-                                joystick: "Left".to_string(),
-                                stick_button: "LeftStick".to_string(),
-                                invert_stick_x: false,
-                                invert_stick_y: false,
-                                rotate90_cw: false,
-                            },
-                            right_joycon: ControllerJoyconConfig {
-                                dpad_up: "Unbound".to_string(),
-                                dpad_down: "Unbound".to_string(),
-                                dpad_left: "Unbound".to_string(),
-                                dpad_right: "Unbound".to_string(),
-                                button_minus: "Unbound".to_string(),
-                                button_l: "Unbound".to_string(),
-                                button_zl: "Unbound".to_string(),
-                                button_sl: "Unbound".to_string(),
-                                button_sr: "Unbound".to_string(),
-                                button_a: Some(if is_nintendo { "A" } else { "B" }.to_string()),
-                                button_b: Some(if is_nintendo { "B" } else { "A" }.to_string()),
-                                button_x: Some(if is_nintendo { "X" } else { "Y" }.to_string()),
-                                button_y: Some(if is_nintendo { "Y" } else { "X" }.to_string()),
-                                button_plus: Some("Plus".to_string()),
-                                button_r: Some("RightShoulder".to_string()),
-                                button_zr: Some("RightTrigger".to_string()),
-                            },
-                            right_joycon_stick: ControllerStickConfig {
-                                joystick: "Right".to_string(),
-                                stick_button: "RightStick".to_string(),
-                                invert_stick_x: false,
-                                invert_stick_y: false,
-                                rotate90_cw: false,
-                            },
-                            motion: MotionConfig {
-                                motion_backend: "GamepadDriver".to_string(),
-                                enable_motion: true,
-                                sensitivity: 100,
-                                gyro_deadzone: 1.0,
-                            },
-                            rumble: RumbleConfig {
-                                strong_rumble: 1.0,
-                                weak_rumble: 1.0,
-                                enable_rumble: true,
-                            },
-                        }));
-                        player_idx_counter += 1;
+                            configs.push(InputConfig::StandardControllerInputConfig(StandardControllerInputConfig {
+                                version: 1,
+                                backend: backend,
+                                id: ryujinx_id,
+                                name: name,
+                                player_index: player_enum,
+                                controller_type: "ProController".to_string(),
+                                deadzone_left: 0.1,
+                                deadzone_right: 0.1,
+                                range_left: 1.0,
+                                range_right: 1.0,
+                                trigger_threshold: 0.5,
+                                left_joycon: ControllerJoyconConfig {
+                                    dpad_up: "DpadUp".to_string(),
+                                    dpad_down: "DpadDown".to_string(),
+                                    dpad_left: "DpadLeft".to_string(),
+                                    dpad_right: "DpadRight".to_string(),
+                                    button_minus: "Minus".to_string(),
+                                    button_l: "LeftShoulder".to_string(),
+                                    button_zl: "LeftTrigger".to_string(),
+                                    button_sl: "SingleLeftTrigger0".to_string(),
+                                    button_sr: "SingleRightTrigger0".to_string(),
+                                    button_a: None, button_b: None, button_x: None, button_y: None, button_plus: None, button_r: None, button_zr: None,
+                                },
+                                left_joycon_stick: ControllerStickConfig {
+                                    joystick: "Left".to_string(),
+                                    stick_button: "LeftStick".to_string(),
+                                    invert_stick_x: false,
+                                    invert_stick_y: false,
+                                    rotate90_cw: false,
+                                },
+                                right_joycon: ControllerJoyconConfig {
+                                    dpad_up: "Unbound".to_string(),
+                                    dpad_down: "Unbound".to_string(),
+                                    dpad_left: "Unbound".to_string(),
+                                    dpad_right: "Unbound".to_string(),
+                                    button_minus: "Unbound".to_string(),
+                                    button_l: "Unbound".to_string(),
+                                    button_zl: "Unbound".to_string(),
+                                    button_sl: "Unbound".to_string(),
+                                    button_sr: "Unbound".to_string(),
+                                    button_a: Some(if is_nintendo { "A" } else { "B" }.to_string()),
+                                    button_b: Some(if is_nintendo { "B" } else { "A" }.to_string()),
+                                    button_x: Some(if is_nintendo { "X" } else { "Y" }.to_string()),
+                                    button_y: Some(if is_nintendo { "Y" } else { "X" }.to_string()),
+                                    button_plus: Some("Plus".to_string()),
+                                    button_r: Some("RightShoulder".to_string()),
+                                    button_zr: Some("RightTrigger".to_string()),
+                                },
+                                right_joycon_stick: ControllerStickConfig {
+                                    joystick: "Right".to_string(),
+                                    stick_button: "RightStick".to_string(),
+                                    invert_stick_x: false,
+                                    invert_stick_y: false,
+                                    rotate90_cw: false,
+                                },
+                                motion: MotionConfig {
+                                    motion_backend: "GamepadDriver".to_string(),
+                                    enable_motion: true,
+                                    sensitivity: 100,
+                                    gyro_deadzone: 1.0,
+                                },
+                                rumble: RumbleConfig {
+                                    strong_rumble: 1.0,
+                                    weak_rumble: 1.0,
+                                    enable_rumble: true,
+                                },
+                            }));
+                            player_idx_counter += 1;
+                        }
                     }
                 }
             }
-        }
 
-        // 2. Assign Keyboard to next available slot (or Player1 if no controllers)
-        // If we have controller(s), keyboard goes to next slot (e.g. Player2)
-        // If no controllers, keyboard is Player1.
-        if player_idx_counter <= 8 {
-             let keyboard_player = format!("Player{}", player_idx_counter);
-             configs.push(InputConfig::StandardKeyboardInputConfig(
-                Self::create_default_keyboard_config(&keyboard_player)
-            ));
-        }
-        
-        configs
+            // 2. Assign Keyboard
+            if player_idx_counter <= 8 {
+                 let keyboard_player = format!("Player{}", player_idx_counter);
+                 configs.push(InputConfig::StandardKeyboardInputConfig(
+                    Self::create_default_keyboard_config(&keyboard_player)
+                ));
+            }
+            
+            configs
+        });
+
+        handle.join().unwrap_or_else(|_| Vec::new())
     }
 
     fn update_ryujinx_input_config() -> Result<()> {
