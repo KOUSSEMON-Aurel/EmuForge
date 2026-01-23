@@ -1,0 +1,48 @@
+// NOUVEAU CODE - À copier dans generate_input_config() pour remplacer les lignes 200-240
+
+                            let name = controller.name();
+                            
+                            // CRITICAL: Ryujinx's AUTHENTIC GUID generation
+                            // Based on Ryujinx source: SDL3GamepadDriver.cs lines 55-102
+                            
+                            // Get joystick to access native GUID (controller doesn't expose guid())
+                            let joystick = match sdl_context.joystick().unwrap().open(i) {
+                                Ok(j) => j,
+                                Err(_) => {
+                                    println!("⚠️  Could not open joystick {} for GUID", i);
+                                    continue;
+                                }
+                            };
+                            
+                            let guid = joystick.guid();
+                            let guid_bytes = guid.raw();
+                            
+                            // Convert to 32-char hex string (lowercase)
+                            let hex_str: String = guid_bytes.iter()
+                                .map(|b| format!("{:02x}", b))
+                                .collect();
+                            
+                            // Apply Ryujinx's SDLGuidToString byte rearrangement (line 68)
+                            // Original C#: $"{strGuid[4..6]}{strGuid[6..8]}{strGuid[2..4]}{strGuid[0..2]}-..."
+                            // Index mapping:  bytes[4] bytes[5] bytes[2] bytes[0] - bytes[7] bytes[6] - ...
+                            let rearranged = format!(
+                                "{}{}{}{}-{}{}-{}-{}-{}",
+                                &hex_str[8..10],   // byte[4]
+                                &hex_str[10..12],  // byte[5]
+                                &hex_str[4..6],    // byte[2]
+                                &hex_str[0..2],    // byte[0]  → First DWORD reversed
+                                &hex_str[14..16],  // byte[7]
+                                &hex_str[12..14],  // byte[6]  → Second WORD reversed
+                                &hex_str[16..20],  // bytes[8-9]
+                                &hex_str[20..24],  // bytes[10-11]
+                                &hex_str[24..32]   // bytes[12-15]
+                            );
+                            
+                            // Remove CRC (first 4 hex chars) and replace with "0000" (line 86)
+                            // C#: $"0000{guid.ToString()[4..]}"
+                            let final_guid = format!("0000{}", &rearranged[4..]);
+                            
+                            // Format: {index}-{guid}
+                            let ryujinx_id = format!("{}-{}", i, final_guid);
+
+                            println!("🎮 Controller {}: '{}' → GUID: {}", i, name, ryujinx_id); 
