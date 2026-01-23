@@ -396,11 +396,25 @@ impl EmulatorPlugin for RyujinxPlugin {
         let binary = self.find_binary().context("Failed to locate Ryujinx binary")?;
         
         // Update input configuration (Auto-detect controllers) on every launch
-        // We do this silently unless it fails
-        if let Err(e) = Self::update_ryujinx_input_config() {
-            eprintln!("❌ Failed to auto-configure Ryujinx input: {:?}", e);
-        } else {
-            println!("✅ Ryujinx input auto-configured successfully.");
+        // CRITICAL DEBUGGING: Log to file + Panic on error
+        use std::io::Write;
+        let log_path = "/tmp/emuforge_controller_debug.log";
+        let mut log_file = fs::OpenOptions::new().create(true).append(true).open(log_path).unwrap_or_else(|_| fs::File::create("/tmp/emuforge_debug_fallback.txt").unwrap());
+        
+        writeln!(log_file, "\n[TIME] 🚀 Launching game via EmuForge...").ok();
+        
+        match Self::update_ryujinx_input_config() {
+            Ok(_) => {
+                writeln!(log_file, "✅ Controller Config Updated SUCCESSFULLY").ok();
+                println!("✅ Controller Config Updated");
+            },
+            Err(e) => {
+                let err_msg = format!("❌ CRITICAL CONTROLLER ERROR: {:?}", e);
+                writeln!(log_file, "{}", err_msg).ok();
+                eprintln!("{}", err_msg);
+                // Si ça plante, on veut le savoir !
+                return Err(anyhow::anyhow!("Controller Config Failed: {:?}", e)); 
+            }
         }
 
         let args = vec![];
