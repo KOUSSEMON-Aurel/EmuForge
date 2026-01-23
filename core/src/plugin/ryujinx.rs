@@ -114,9 +114,9 @@ impl RyujinxPlugin {
             version: 1,
             backend: "WindowKeyboard".to_string(),
             id: "0".to_string(),
-            name: "Workaround Keyboard".to_string(), // Arbitrary name for keyboard
+            name: "All Keyboards".to_string(), // Standard Ryujinx keyboard name
             player_index: player_index.to_string(),
-            controller_type: "JoyconPair".to_string(),
+            controller_type: "ProController".to_string(), // ProController is better default than JoyconPair for keyboard
             left_joycon: KeyboardJoyconConfig {
                 dpad_up: "Up".to_string(),
                 dpad_down: "Down".to_string(),
