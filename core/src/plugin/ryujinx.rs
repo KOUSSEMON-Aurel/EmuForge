@@ -232,6 +232,13 @@ impl EmulatorPlugin for RyujinxPlugin {
                 if let Some(name) = nca.file_name().and_then(|n| n.to_str()) {
                     // Ryujinx structure: registered/{filename}/00
                     let nca_dir = firmware_dir.join(name);
+                    
+                    // Fix: Remove existing file if it conflicts with the new directory structure
+                    // This handles migration from old flat-file installs
+                    if nca_dir.exists() && nca_dir.is_file() {
+                        let _ = fs::remove_file(&nca_dir);
+                    }
+                    
                     fs::create_dir_all(&nca_dir)?;
                     let dest = nca_dir.join("00");
                     let _ = fs::copy(nca, &dest);
