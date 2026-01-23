@@ -44,4 +44,9 @@ impl PluginManager {
             .find(|p| p.can_handle(binary_path))
             .map(|p| p.clone_with_path(binary_path.to_path_buf()))
     }
+
+    /// Finds a plugin by its ID string.
+    pub fn get_plugin_by_id(&self, id: &str) -> Option<&dyn EmulatorPlugin> {
+        self.plugins.iter().find(|p| p.id() == id).map(|b| b.as_ref())
+    }
 }

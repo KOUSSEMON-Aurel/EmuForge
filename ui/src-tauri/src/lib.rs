@@ -279,7 +279,7 @@ fn forge_portable_executable(
     let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
     
     // Add emulator
-    let emu_filename = emulator_path.file_name()
+    let emu_filename = final_emulator_path.file_name()
         .ok_or("Invalid emulator path")?
         .to_string_lossy()
         .to_string();
@@ -291,7 +291,13 @@ fn forge_portable_executable(
         emu_options = emu_options.unix_permissions(0o755);
     }
     
-    add_file_to_zip(&app, &mut zip, &final_emulator_path, &emu_filename, emu_options)?;
+    // Check if emulator is a directory (e.g., patched Ryujinx squashfs-root)
+    if final_emulator_path.is_dir() {
+        println!("📁 Bundling emulator directory: {}", emu_filename);
+        add_directory_to_zip(&app, &mut zip, &final_emulator_path, &emu_filename, emu_options)?;
+    } else {
+        add_file_to_zip(&app, &mut zip, &final_emulator_path, &emu_filename, emu_options)?;
+    }
     
     // Add ROM
     // Optimization: Use Stored (no compression) for ROMs to speed up forging significantly.
@@ -360,25 +366,29 @@ fn forge_portable_executable(
     // Add BIOS if present
     // Strategy: Copy BIOS to the config folder on disk FIRST, so add_directory_to_zip includes it naturally.
     // This prevents "Duplicate filename" errors.
+    // NOTE: Ryujinx handles firmware differently via prepare_portable_binary - skip generic copy
     if let Some(bios) = &bios_path {
-        if bios.exists() {
-            let bios_filename = bios.file_name()
-                .ok_or("Invalid BIOS path")?
-                .to_string_lossy()
-                .to_string();
-            
-            // Construct destination path based on emulator type
-            let bios_dest_dir = if driver_id == "duckstation" {
-                temp_work_dir.join(".duckstation_home/.local/share/duckstation/bios")
-            } else {
-                temp_work_dir.join("pcsx2_data/PCSX2/bios")
-            };
-            std::fs::create_dir_all(&bios_dest_dir)
-                .map_err(|e| format!("Failed to create BIOS dir: {}", e))?;
+        if bios.exists() && driver_id != "ryujinx" {
+            // Only copy if it's a file (not a directory like Ryujinx firmware folder)
+            if bios.is_file() {
+                let bios_filename = bios.file_name()
+                    .ok_or("Invalid BIOS path")?
+                    .to_string_lossy()
+                    .to_string();
                 
-            let bios_dest_path = bios_dest_dir.join(&bios_filename);
-            std::fs::copy(bios, &bios_dest_path)
-                .map_err(|e| format!("Failed to copy BIOS to config dir: {}", e))?;
+                // Construct destination path based on emulator type
+                let bios_dest_dir = if driver_id == "duckstation" {
+                    temp_work_dir.join(".duckstation_home/.local/share/duckstation/bios")
+                } else {
+                    temp_work_dir.join("pcsx2_data/PCSX2/bios")
+                };
+                std::fs::create_dir_all(&bios_dest_dir)
+                    .map_err(|e| format!("Failed to create BIOS dir: {}", e))?;
+                    
+                let bios_dest_path = bios_dest_dir.join(&bios_filename);
+                std::fs::copy(bios, &bios_dest_path)
+                    .map_err(|e| format!("Failed to copy BIOS to config dir: {}", e))?;
+            }
         }
     }
     
@@ -639,7 +649,7 @@ async fn get_installed_emulators() -> Result<Vec<String>, String> {
     // For now, let's just check the ones we hardcoded in downloader logic or UI.
     // IMPORTANT: Seuls les émulateurs avec une URL dans downloader.get_url() doivent être ici
     // Les autres (xemu, ryujinx, melonds, lime3ds, redream) ne peuvent pas être téléchargés
-    let candidates = vec!["ppsspp", "pcsx2", "duckstation", "dolphin", "cemu", "rpcs3"];
+    let candidates = vec!["ppsspp", "pcsx2", "duckstation", "dolphin", "cemu", "rpcs3", "ryujinx"];
     
     let mut installed = vec![];
     for id in candidates {
@@ -665,6 +675,34 @@ fn detect_platform(path: String) -> String {
     platform.as_str().to_string()
 }
 
+#[tauri::command]
+fn get_emu_requirements(plugin_id: String) -> Result<emuforge_core::plugin::RequirementInfo, String> {
+    use emuforge_core::plugin::manager::PluginManager;
+    let manager = PluginManager::new();
+    
+    // Get plugin directly by ID - no path needed for requirements check
+    if let Some(plugin) = manager.get_plugin_by_id(&plugin_id) {
+        Ok(plugin.get_requirements())
+    } else {
+        // Fallback or error
+        Ok(emuforge_core::plugin::RequirementInfo::default())
+    }
+}
+
+#[tauri::command]
+fn validate_emu_requirements(plugin_id: String, source_path: Option<String>) -> Result<emuforge_core::plugin::ValidationResult, String> {
+    use emuforge_core::plugin::manager::PluginManager;
+    let manager = PluginManager::new();
+    
+    if let Some(plugin) = manager.get_plugin_by_id(&plugin_id) {
+        let path = source_path.map(PathBuf::from);
+        plugin.validate_requirements(path.as_deref())
+            .map_err(|e| format!("Validation error: {}", e))
+    } else {
+        Err("Plugin not found".to_string())
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -674,7 +712,16 @@ pub fn run() {
         .manage(AppState {
             output_dir: Mutex::new(PathBuf::from("output")),
         })
-        .invoke_handler(tauri::generate_handler![forge_executable, validate_file, download_emulator, get_installed_emulators, quit_app, detect_platform])
+        .invoke_handler(tauri::generate_handler![
+            forge_executable, 
+            validate_file, 
+            download_emulator, 
+            get_installed_emulators, 
+            quit_app, 
+            detect_platform,
+            get_emu_requirements,
+            validate_emu_requirements
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

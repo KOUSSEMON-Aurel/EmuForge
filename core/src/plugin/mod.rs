@@ -1,7 +1,22 @@
 use std::path::{Path, PathBuf};
 use anyhow::Result;
 use crate::forge::LaunchConfig;
+use serde::{Deserialize, Serialize}; // Need serde for struct
 
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct RequirementInfo {
+    pub needs_bios: bool,
+    pub needs_firmware: bool,
+    pub keys_file: Option<String>, // e.g., "prod.keys"
+    pub description: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ValidationResult {
+    pub valid: bool,
+    pub message: String,
+    pub fixed: bool,
+}
 pub trait EmulatorPlugin: Send + Sync {
     /// Unique identifier for the emulator (e.g., "ppsspp").
     fn id(&self) -> &str;
@@ -93,6 +108,25 @@ pub trait EmulatorPlugin: Send + Sync {
     ) -> Result<Option<PathBuf>> {
         // Par défaut, pas de patching nécessaire
         Ok(None)
+    }
+
+    // =========================================
+    // Requirements Validation
+    // =========================================
+
+    /// Returns the requirements for this emulator.
+    fn get_requirements(&self) -> RequirementInfo {
+        RequirementInfo::default()
+    }
+
+    /// Validates if requirements are met. 
+    /// If `source_path` is provided, it attempts to scan and auto-fix (copy files).
+    fn validate_requirements(&self, _source_path: Option<&Path>) -> Result<ValidationResult> {
+        Ok(ValidationResult {
+            valid: true,
+            message: "No specific requirements".to_string(),
+            fixed: false,
+        })
     }
 }
 

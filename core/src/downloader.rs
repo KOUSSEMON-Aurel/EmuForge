@@ -46,7 +46,12 @@ impl EmulatorDownloader {
 
             // Cemu - Pinned v2.6 (Latest stable Wii U emulator)
             ("cemu", true) => Some(("https://github.com/cemu-project/Cemu/releases/download/v2.6/cemu-2.6-windows-x64.zip", "cemu-windows.zip")),
+
             ("cemu", false) => Some(("https://github.com/cemu-project/Cemu/releases/download/v2.6/Cemu-2.6-x86_64.AppImage", "Cemu.AppImage")),
+
+            // Ryujinx - Ryubing Fork v1.3.3 (Stable)
+            ("ryujinx", true) => Some(("https://git.ryujinx.app/api/v4/projects/1/packages/generic/Ryubing/1.3.3/ryujinx-1.3.3-win_x64.zip", "ryujinx-windows.zip")),
+            ("ryujinx", false) => Some(("https://git.ryujinx.app/api/v4/projects/1/packages/generic/Ryubing/1.3.3/ryujinx-1.3.3-x64.AppImage", "Ryujinx.AppImage")),
 
             // Other emulators would need manual implementation or usage of system packages
             _ => None
@@ -62,6 +67,7 @@ impl EmulatorDownloader {
                  "dolphin" => "Dolphin.exe",
                  "rpcs3" => "rpcs3.exe",
                  "cemu" => "Cemu.exe",
+                 "ryujinx" => "Ryujinx.exe",
                  _ => "emulator.exe"
              }.to_string()
         } else {
@@ -72,6 +78,7 @@ impl EmulatorDownloader {
                  "dolphin" => "Dolphin.AppImage", 
                  "rpcs3" => "RPCS3.AppImage",
                  "cemu" => "Cemu.AppImage", 
+                 "ryujinx" => "Ryujinx.AppImage",
                  _ => "emulator"
              }.to_string()
         }
@@ -132,7 +139,13 @@ impl EmulatorDownloader {
 
         println!("Downloading {} from {}...", emu_id, url);
         
-        let response = reqwest::get(url).await.context("Failed to fetch URL")?;
+        
+        let client = reqwest::Client::builder()
+            .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+            .build()
+            .context("Failed to build http client")?;
+
+        let response = client.get(url).send().await.context("Failed to fetch URL")?;
         let bytes = response.bytes().await.context("Failed to get bytes")?;
 
         // Save to temporary file to allow seeking (required for 7z and efficient for others)

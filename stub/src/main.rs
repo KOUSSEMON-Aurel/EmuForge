@@ -131,9 +131,18 @@ fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
     }
     
     // Build paths to extracted files
-    let emulator_path = target_dir.join(&config.emulator_filename);
+    let mut emulator_path = target_dir.join(&config.emulator_filename);
     let rom_path = target_dir.join(&config.rom_filename);
     let config_path = target_dir.join(&config.config_dir);
+    
+    // If emulator is a directory (e.g., extracted AppImage squashfs-root), use AppRun inside it
+    if emulator_path.is_dir() {
+        let app_run = emulator_path.join("AppRun");
+        if app_run.exists() {
+            eprintln!("📁 Emulator is a directory, using AppRun launcher");
+            emulator_path = app_run;
+        }
+    }
     
     // Make emulator executable (Linux)
     #[cfg(unix)]

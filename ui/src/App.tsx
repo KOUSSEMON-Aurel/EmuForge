@@ -115,7 +115,7 @@ function App() {
   const [emulatorPath, setEmulatorPath] = useState('');
   const [biosPath, setBiosPath] = useState('');
   const [selectedPlugin, setSelectedPlugin] = useState('auto');
-  const [targetOs, setTargetOs] = useState('auto');
+  const [targetOs, setTargetOs] = useState('auto'); // Will be auto-detected on mount
   const [fullscreen, setFullscreen] = useState(true);
   const [portableMode, setPortableMode] = useState(false);
   const [outputDir, setOutputDir] = useState('output'); // Folder for generated files
@@ -132,6 +132,28 @@ function App() {
   const [installedEmulators, setInstalledEmulators] = useState<string[]>([]);
   // Platform Detection State
   const [detectedPlatform, setDetectedPlatform] = useState<string | null>(null);
+
+  // Requirements & Validation State
+  const [requirements, setRequirements] = useState<any>(null);
+  const [validationStatus, setValidationStatus] = useState<{ valid: boolean; message: string; fixed: boolean } | null>(null);
+
+  // Sequential Field Unlocking
+  const [lockedFieldClicked, setLockedFieldClicked] = useState<string | null>(null);
+
+  // Auto-detect target OS on mount
+  useEffect(() => {
+    // Detect current OS
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const platform = window.navigator.platform.toLowerCase();
+
+    if (platform.includes('win') || userAgent.includes('windows')) {
+      setTargetOs('windows');
+    } else if (platform.includes('linux') || userAgent.includes('linux')) {
+      setTargetOs('linux');
+    } else {
+      setTargetOs('auto'); // Fallback
+    }
+  }, []);
 
   // Initialize theme
   useEffect(() => {
@@ -186,6 +208,68 @@ function App() {
       setDetectedPlatform(null);
     }
   }, [romPath]);
+
+  // Fetch Requirements when Emulator changes
+  useEffect(() => {
+    if (selectedPlugin && selectedPlugin !== 'auto') {
+      invoke('get_emu_requirements', { pluginId: selectedPlugin })
+        .then((req: any) => {
+          console.log("Requirements:", req);
+          if (req.needs_bios || req.needs_firmware) {
+            setRequirements(req);
+            setValidationStatus(null); // Reset validation
+            setBiosPath(""); // Clear path to force re-selection/validation
+          } else {
+            setRequirements(null);
+            setValidationStatus({ valid: true, message: "No special requirements", fixed: false });
+          }
+        })
+        .catch(e => console.error("Failed to get requirements:", e));
+    } else {
+      setRequirements(null);
+    }
+  }, [selectedPlugin]);
+
+  // Auto-detect plugin from emulator path and fetch requirements
+  useEffect(() => {
+    if (emulatorPath) {
+      // Detect plugin ID from emulator path
+      const pathLower = emulatorPath.toLowerCase();
+      let detectedPlugin = 'auto';
+
+      if (pathLower.includes('ryujinx')) detectedPlugin = 'ryujinx';
+      else if (pathLower.includes('cemu')) detectedPlugin = 'cemu';
+      else if (pathLower.includes('dolphin')) detectedPlugin = 'dolphin';
+      else if (pathLower.includes('pcsx2')) detectedPlugin = 'pcsx2';
+      else if (pathLower.includes('ppsspp')) detectedPlugin = 'ppsspp';
+      else if (pathLower.includes('duckstation')) detectedPlugin = 'duckstation';
+      else if (pathLower.includes('rpcs3')) detectedPlugin = 'rpcs3';
+      else if (pathLower.includes('xemu')) detectedPlugin = 'xemu';
+      else if (pathLower.includes('lime3ds') || pathLower.includes('citra')) detectedPlugin = 'lime3ds';
+      else if (pathLower.includes('melonds')) detectedPlugin = 'melonds';
+      else if (pathLower.includes('redream')) detectedPlugin = 'redream';
+
+      if (detectedPlugin !== 'auto') {
+        // Auto-select the plugin
+        setSelectedPlugin(detectedPlugin);
+
+        // Fetch requirements immediately
+        invoke('get_emu_requirements', { pluginId: detectedPlugin })
+          .then((req: any) => {
+            console.log("Auto-detected Requirements:", req);
+            if (req.needs_bios || req.needs_firmware) {
+              setRequirements(req);
+              setValidationStatus(null);
+              setBiosPath("");
+            } else {
+              setRequirements(null);
+              setValidationStatus({ valid: true, message: "No special requirements", fixed: false });
+            }
+          })
+          .catch(e => console.error("Failed to get auto-detected requirements:", e));
+      }
+    }
+  }, [emulatorPath]);
 
   const getRecommendedEmulator = () => {
     if (!detectedPlatform) return [];
@@ -280,11 +364,44 @@ function App() {
   }
 
   async function selectBios() {
-    const selected = await open({
-      multiple: false,
-      filters: [{ name: 'BIOS File', extensions: ['bin', 'rom', 'img', 'bios', '*'] }]
-    });
-    if (selected) setBiosPath(selected as string);
+    // If requirements exist, we Select FOLDER, not FILE
+    if (requirements) {
+      const selected = await open({
+        directory: true,
+        multiple: false,
+      });
+      if (selected) {
+        const path = selected as string;
+        setBiosPath(path);
+        validateRequirements(path);
+      }
+    } else {
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: 'BIOS File', extensions: ['bin', 'rom', 'img', 'bios', '*'] }]
+      });
+      if (selected) setBiosPath(selected as string);
+    }
+  }
+
+  async function validateRequirements(path: string) {
+    if (!requirements) return;
+    try {
+      const result: any = await invoke('validate_emu_requirements', { pluginId: selectedPlugin, sourcePath: path });
+      setValidationStatus(result);
+      if (result.valid) {
+        if (result.fixed) {
+          setStatus(`Auto-Fix Success: ${result.message}`);
+          setIsSuccess(true);
+        }
+      } else {
+        setStatus(`Validation Failed: ${result.message}`);
+        setIsSuccess(false);
+      }
+    } catch (e) {
+      console.error("Validation error:", e);
+      setValidationStatus({ valid: false, message: `Error: ${e}`, fixed: false });
+    }
   }
 
   async function handleForge() {
@@ -311,7 +428,7 @@ function App() {
         biosPath: biosPath || null,
         outputDir: outputDir,
         plugin: selectedPlugin,
-        targetOs,
+        targetOs: targetOs,
         fullscreen,
         args: [],
         portableMode: portableMode
@@ -396,7 +513,14 @@ function App() {
 
           {/* ROM File */}
           <div className="input-wrapper">
-            <div className="label-row"><label>ROM Location</label></div>
+            <div className="label-row">
+              <label>ROM Location</label>
+              {detectedPlatform && detectedPlatform !== 'unknown' && (
+                <span style={{ marginLeft: 'auto', fontSize: '0.75rem', background: 'rgba(88, 166, 255, 0.15)', color: '#58A6FF', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                  🎮 {detectedPlatform.toUpperCase()}
+                </span>
+              )}
+            </div>
             <div className="input-container">
               <input
                 type="text"
@@ -414,47 +538,111 @@ function App() {
           {/* Emulator & BIOS Row */}
           <div className="row">
             <div className="col input-wrapper">
-              <div className="label-row"><label>Emulator Binary</label></div>
-              <div className="input-container">
+              <div className="label-row">
+                <label>Emulator Binary</label>
+                {selectedPlugin && selectedPlugin !== 'auto' && (
+                  <span style={{ marginLeft: 'auto', fontSize: '0.75rem', background: 'rgba(255, 122, 92, 0.15)', color: 'var(--primary)', padding: '2px 8px', borderRadius: '4px', fontWeight: 600 }}>
+                    ⚙️ {selectedPlugin.toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div className="input-container" style={{ position: 'relative' }}>
                 <input
                   type="text"
                   className="text-input"
-                  placeholder="Select exe..."
+                  placeholder={!romPath ? "⚠️ Select ROM first" : "Select exe..."}
                   value={emulatorPath}
                   onChange={(e) => setEmulatorPath(e.target.value)}
+                  disabled={!romPath}
+                  onClick={(e) => { if (!romPath) { e.preventDefault(); setLockedFieldClicked('emulator'); setTimeout(() => setLockedFieldClicked(null), 2000); } }}
+                  style={{
+                    borderColor: lockedFieldClicked === 'emulator' ? '#ff4444' : (!romPath ? '#666' : ''),
+                    animation: lockedFieldClicked === 'emulator' ? 'pulse-red 0.5s ease-in-out 3' : 'none',
+                    cursor: !romPath ? 'not-allowed' : 'text'
+                  }}
                 />
-                <button className="input-action-btn" onClick={openEmulatorModal} title="Select or Download Emulator">
+                <button
+                  className="input-action-btn"
+                  onClick={(e) => { if (!romPath) { e.preventDefault(); setLockedFieldClicked('emulator'); setTimeout(() => setLockedFieldClicked(null), 2000); } else { openEmulatorModal(); } }}
+                  title={!romPath ? "Select ROM first" : "Select or Download Emulator"}
+                  disabled={!romPath}
+                  style={{ opacity: !romPath ? 0.5 : 1, cursor: !romPath ? 'not-allowed' : 'pointer' }}
+                >
                   <SettingsIcon />
                 </button>
+                {lockedFieldClicked === 'emulator' && (
+                  <div style={{ position: 'absolute', top: '-30px', left: '0', background: '#ff4444', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', whiteSpace: 'nowrap', zIndex: 10 }}>
+                    ⚠️ Sélectionnez d'abord une ROM !
+                  </div>
+                )}
               </div>
             </div>
 
+            {/* Dynamic BIOS/Requirements Input */}
             <div className="col input-wrapper">
-              <div className="label-row"><label>BIOS (Optional)</label></div>
-              <div className="input-container">
+              <div className="label-row">
+                <label>
+                  {requirements ? "Setup Required (Keys/Firmware)" : "BIOS (Optional)"}
+                </label>
+                {requirements && validationStatus && (
+                  <span style={{ marginLeft: 'auto', fontSize: '0.8rem', color: validationStatus.valid ? 'var(--status-success)' : 'var(--status-error)' }}>
+                    {validationStatus.valid ? "✅ Ready" : "❌ Missing Files"}
+                  </span>
+                )}
+              </div>
+              <div className="input-container" style={{ position: 'relative' }}>
                 <input
                   type="text"
                   className="text-input"
-                  placeholder="Select BIOS..."
+                  placeholder={!emulatorPath ? "⚠️ Select Emulator first" : requirements ? "Select folder with keys & firmware..." : "Select BIOS..."}
                   value={biosPath}
                   onChange={(e) => setBiosPath(e.target.value)}
+                  readOnly={!!requirements || !emulatorPath}
+                  disabled={!emulatorPath}
+                  onClick={(e) => { if (!emulatorPath) { e.preventDefault(); setLockedFieldClicked('bios'); setTimeout(() => setLockedFieldClicked(null), 2000); } }}
+                  style={{
+                    borderColor: lockedFieldClicked === 'bios' ? '#ff4444' : (requirements && !validationStatus?.valid ? 'var(--status-error)' : (!emulatorPath ? '#666' : '')),
+                    animation: lockedFieldClicked === 'bios' ? 'pulse-red 0.5s ease-in-out 3' : 'none',
+                    cursor: !emulatorPath ? 'not-allowed' : 'text'
+                  }}
                 />
-                <button className="input-action-btn" onClick={selectBios} title="Browse BIOS">
-                  <CpuIcon />
+                <button
+                  className="input-action-btn"
+                  onClick={(e) => { if (!emulatorPath) { e.preventDefault(); setLockedFieldClicked('bios'); setTimeout(() => setLockedFieldClicked(null), 2000); } else { selectBios(); } }}
+                  title={!emulatorPath ? "Select Emulator first" : requirements ? "Browse Folder" : "Browse BIOS"}
+                  disabled={!emulatorPath}
+                  style={{ opacity: !emulatorPath ? 0.5 : 1, cursor: !emulatorPath ? 'not-allowed' : 'pointer' }}
+                >
+                  {requirements ? <FolderIcon /> : <CpuIcon />}
                 </button>
+                {lockedFieldClicked === 'bios' && (
+                  <div style={{ position: 'absolute', top: '-30px', left: '0', background: '#ff4444', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '0.75rem', whiteSpace: 'nowrap', zIndex: 10 }}>
+                    ⚠️ Sélectionnez d'abord un émulateur !
+                  </div>
+                )}
               </div>
+              {requirements && validationStatus && !validationStatus.valid && (
+                <div style={{ marginTop: '4px', fontSize: '0.75rem', color: 'var(--status-error)' }}>
+                  {validationStatus.message}
+                </div>
+              )}
             </div>
           </div>
 
           {/* Plugin Selection & Target OS */}
           <div className="row">
             <div className="col input-wrapper">
-              <div className="label-row"><label>Emulator Plugin</label></div>
+              <div className="label-row">
+                <label>Emulator Plugin</label>
+                <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--text-muted)' }}>Modifiable</span>
+              </div>
               <div className="input-container">
                 <select
                   className="text-input"
                   value={selectedPlugin}
                   onChange={(e) => setSelectedPlugin(e.target.value)}
+                  disabled={!emulatorPath}
+                  style={{ cursor: !emulatorPath ? 'not-allowed' : 'pointer', opacity: !emulatorPath ? 0.5 : 1 }}
                 >
                   <option value="auto">Auto-Detect</option>
                   <option value="ppsspp">PPSSPP (PSP)</option>
@@ -473,7 +661,10 @@ function App() {
             </div>
 
             <div className="col input-wrapper">
-              <div className="label-row"><label>Target Platform</label></div>
+              <div className="label-row">
+                <label>Target Platform</label>
+                <span style={{ marginLeft: 'auto', fontSize: '0.7rem', color: 'var(--text-muted)' }}>Modifiable</span>
+              </div>
               <div className="input-container">
                 <select
                   className="text-input"
@@ -523,7 +714,8 @@ function App() {
         <button
           className="forge-btn"
           onClick={handleForge}
-          disabled={isForging}
+          disabled={isForging || (requirements && !validationStatus?.valid)} // Blocker
+          style={{ opacity: (requirements && !validationStatus?.valid) ? 0.5 : 1, cursor: (requirements && !validationStatus?.valid) ? 'not-allowed' : 'pointer' }}
         >
           {isForging ? <div className="spinner"></div> : <PlayIcon />}
           <span>
