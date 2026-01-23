@@ -396,7 +396,12 @@ impl EmulatorPlugin for RyujinxPlugin {
         let binary = self.find_binary().context("Failed to locate Ryujinx binary")?;
         
         // Update input configuration (Auto-detect controllers) on every launch
-        Self::update_ryujinx_input_config().ok();
+        // We do this silently unless it fails
+        if let Err(e) = Self::update_ryujinx_input_config() {
+            eprintln!("❌ Failed to auto-configure Ryujinx input: {:?}", e);
+        } else {
+            println!("✅ Ryujinx input auto-configured successfully.");
+        }
 
         let args = vec![];
 
