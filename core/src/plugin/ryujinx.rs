@@ -229,8 +229,11 @@ impl EmulatorPlugin for RyujinxPlugin {
         let firmware_installed = if !nca_files.is_empty() {
             fs::create_dir_all(&firmware_dir)?;
             for nca in &nca_files {
-                if let Some(name) = nca.file_name() {
-                    let dest = firmware_dir.join(name);
+                if let Some(name) = nca.file_name().and_then(|n| n.to_str()) {
+                    // Ryujinx structure: registered/{filename}/00
+                    let nca_dir = firmware_dir.join(name);
+                    fs::create_dir_all(&nca_dir)?;
+                    let dest = nca_dir.join("00");
                     let _ = fs::copy(nca, &dest);
                 }
             }
@@ -325,8 +328,12 @@ impl EmulatorPlugin for RyujinxPlugin {
         // Copy NCAs to bundle
         let nca_count = nca_files.len();
         for nca in &nca_files {
-            if let Some(name) = nca.file_name() {
-                let _ = fs::copy(nca, firmware_bundle_nca.join(name));
+            if let Some(name) = nca.file_name().and_then(|n| n.to_str()) {
+                // Ryujinx structure: registered/{filename}/00
+                // We recreate this structure in the bundle so the script just copies folders
+                let nca_dir = firmware_bundle_nca.join(name);
+                fs::create_dir_all(&nca_dir)?;
+                let _ = fs::copy(nca, nca_dir.join("00"));
             }
         }
         println!("  📁 Bundled {} firmware NCAs", nca_count);
