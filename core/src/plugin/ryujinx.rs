@@ -169,7 +169,7 @@ impl RyujinxPlugin {
         // This can happen if SDL2 init conflicts with other libraries in the main process.
         let handle = std::thread::spawn(|| {
             let mut configs = Vec::new();
-            let mut player_idx_counter = 1;
+            let player_idx_counter = 1;
 
             // 1. Scan SDL2 Controllers
             if let Ok(sdl_context) = sdl2::init() {
@@ -187,29 +187,10 @@ impl RyujinxPlugin {
                             let mapping = controller.mapping();
                             let raw_guid = mapping.split(',').next().unwrap_or("0").to_string();
 
-                            // Fix GUID format for .NET/Ryujinx (Little Endian interpretation of first 3 parts)
-                            // SDL String: AABBCCDD EEFF GGHH ...
-                            // .NET GUID:  DDCCBBAA-FFEE-HHGG-...
+                            // Simple GUID format with dashes: 8-4-4-4-12
                             let formatted_guid = if raw_guid.len() == 32 {
-                                let p1 = &raw_guid[0..8];
-                                let p2 = &raw_guid[8..12];
-                                let p3 = &raw_guid[12..16];
-                                let p4 = &raw_guid[16..20];
-                                let p5 = &raw_guid[20..32];
-
-                                fn swap_bytes(hex: &str) -> String {
-                                    hex.as_bytes()
-                                        .chunks(2)
-                                        .rev()
-                                        .map(|c| std::str::from_utf8(c).unwrap())
-                                        .collect()
-                                }
-
                                 format!("{}-{}-{}-{}-{}", 
-                                    swap_bytes(p1), 
-                                    swap_bytes(p2), 
-                                    swap_bytes(p3), 
-                                    p4, p5)
+                                    &raw_guid[0..8], &raw_guid[8..12], &raw_guid[12..16], &raw_guid[16..20], &raw_guid[20..32])
                             } else {
                                 raw_guid.clone()
                             };
@@ -217,10 +198,11 @@ impl RyujinxPlugin {
                             // Ryujinx ID format: "{index}-{formatted_guid}"
                             let ryujinx_id = format!("{}-{}", i, formatted_guid);
 
-                            println!("🎮 Found Controller: '{}' (Raw GUID: {}, Final ID: {})", name, raw_guid, ryujinx_id); 
+                            println!("🎮 Found Controller: '{}' (GUID: {})", name, ryujinx_id); 
                             
                             let is_nintendo = name.to_lowercase().contains("nintendo");
-                            let player_enum = format!("Player{}", player_idx_counter);
+                            // ALL controllers go to Player1 (solo game mode)
+                            let player_enum = "Player1".to_string();
                             let backend = "GamepadSDL2".to_string();
 
                             configs.push(InputConfig::StandardControllerInputConfig(StandardControllerInputConfig {
@@ -240,7 +222,7 @@ impl RyujinxPlugin {
                                     dpad_down: "DpadDown".to_string(),
                                     dpad_left: "DpadLeft".to_string(),
                                     dpad_right: "DpadRight".to_string(),
-                                    button_minus: "Back".to_string(), // Mapped to Back on standard gamepads
+                                    button_minus: "Back".to_string(),
                                     button_l: "LeftShoulder".to_string(),
                                     button_zl: "LeftTrigger".to_string(),
                                     button_sl: "SingleLeftTrigger0".to_string(),
@@ -268,7 +250,7 @@ impl RyujinxPlugin {
                                     button_b: Some(if is_nintendo { "B" } else { "A" }.to_string()),
                                     button_x: Some(if is_nintendo { "X" } else { "Y" }.to_string()),
                                     button_y: Some(if is_nintendo { "Y" } else { "X" }.to_string()),
-                                    button_plus: Some("Start".to_string()), // Mapped to Start on standard gamepads
+                                    button_plus: Some("Start".to_string()),
                                     button_r: Some("RightShoulder".to_string()),
                                     button_zr: Some("RightTrigger".to_string()),
                                 },
@@ -291,19 +273,16 @@ impl RyujinxPlugin {
                                     enable_rumble: true,
                                 },
                             }));
-                            player_idx_counter += 1;
+                            // Don't increment - we want keyboard ALSO on Player1
                         }
                     }
                 }
             }
 
-            // 2. Assign Keyboard
-            if player_idx_counter <= 8 {
-                 let keyboard_player = format!("Player{}", player_idx_counter);
-                 configs.push(InputConfig::StandardKeyboardInputConfig(
-                    Self::create_default_keyboard_config(&keyboard_player)
-                ));
-            }
+            // 2. Keyboard is ALWAYS Player1 (so solo games work with or without controller)
+            configs.push(InputConfig::StandardKeyboardInputConfig(
+                Self::create_default_keyboard_config("Player1")
+            ));
             
             configs
         });
