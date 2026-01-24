@@ -69,6 +69,10 @@ impl EmulatorDownloader {
             ("lime3ds", true) => Some(("https://github.com/azahar-emu/azahar/releases/download/2124.1/azahar-2124.1-windows-msvc.zip", "azahar.zip")),
             ("lime3ds", false) => Some(("https://github.com/azahar-emu/azahar/releases/download/2124.1/azahar.AppImage", "azahar.AppImage")),
 
+            // melonDS - NDS Emulator (v1.1)
+            ("melonds", true) => Some(("https://github.com/melonDS-emu/melonDS/releases/download/1.1/melonDS-1.1-windows-x86_64.zip", "melonds.zip")),
+            ("melonds", false) => Some(("https://github.com/melonDS-emu/melonDS/releases/download/1.1/melonDS-1.1-appimage-x86_64.zip", "melonds.zip")),
+
             // Other emulators would need manual implementation or usage of system packages
             _ => None
         }
@@ -87,7 +91,8 @@ impl EmulatorDownloader {
                  "xemu" => "xemu.exe",
                  "extract-xiso" => "extract-xiso.exe",
                  "flycast" => "flycast.exe",
-                 "lime3ds" => "azahar.exe", // Exécutable Windows
+                 "lime3ds" => "azahar.exe", 
+                 "melonds" => "melonDS.exe",
                  _ => "emulator.exe"
              }.to_string()
         } else {
@@ -102,7 +107,8 @@ impl EmulatorDownloader {
                  "xemu" => "xemu.AppImage",
                  "extract-xiso" => "extract-xiso",
                  "flycast" => "flycast.AppImage",
-                 "lime3ds" => "azahar.AppImage", // Nom exact téléchargé
+                 "lime3ds" => "azahar.AppImage", 
+                 "melonds" => "melonDS.AppImage", // Will handle zip extraction rename
                  _ => "emulator"
              }.to_string()
         }

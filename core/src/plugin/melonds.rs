@@ -24,6 +24,11 @@ impl EmulatorPlugin for MelonDSPlugin {
         }
         if let Ok(path) = which::which("melonDS") { return Ok(path); }
         if let Ok(path) = which::which("melonds") { return Ok(path); }
+        if let Some(path) = &self.custom_binary_path {
+             if path.exists() { return Ok(path.clone()); }
+        }
+        // Check for local AppImage if we renamed it
+        if let Ok(path) = which::which("melonDS.AppImage") { return Ok(path); }
         
         Err(anyhow::anyhow!("melonDS executable not found."))
     }
