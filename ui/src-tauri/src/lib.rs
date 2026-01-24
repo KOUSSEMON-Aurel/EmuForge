@@ -184,7 +184,7 @@ async fn forge_executable(
         // Update config with potentially patched emulator path
         config.emulator_path = final_emulator_path;
 
-        // 3. Generate wrapper script si nécessaire (ex: DuckStation)
+            // 3. Generate wrapper script si nécessaire (ex: DuckStation)
         if plugin.requires_wrapper() {
             if let Some(wrapper_path) = plugin.generate_wrapper_script(&config, &out_path, &game_name)
                 .map_err(|e| format!("Wrapper error: {}", e))? {
@@ -194,6 +194,11 @@ async fn forge_executable(
                 config.rom_path = PathBuf::from("");
             }
         }
+        
+        // 4. Inject Environment Variables (Force Standalone Config)
+        // Using output directory as the base for config/data to mimic portable behavior
+        let envs = plugin.portable_env_vars(&out_path);
+        config.env_vars.extend(envs);
     }
 
     let forge = ExecutableForge::new(stub_crate_path, out_path.clone());
