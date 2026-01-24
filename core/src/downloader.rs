@@ -53,6 +53,10 @@ impl EmulatorDownloader {
             ("ryujinx", true) => Some(("https://git.ryujinx.app/api/v4/projects/1/packages/generic/Ryubing/1.3.3/ryujinx-1.3.3-win_x64.zip", "ryujinx-windows.zip")),
             ("ryujinx", false) => Some(("https://git.ryujinx.app/api/v4/projects/1/packages/generic/Ryubing/1.3.3/ryujinx-1.3.3-x64.AppImage", "Ryujinx.AppImage")),
 
+            // xemu - v0.8.133 (Xbox Original Emulator)
+            ("xemu", true) => Some(("https://github.com/xemu-project/xemu/releases/download/v0.8.133/xemu-0.8.133-windows-x86_64.zip", "xemu-windows.zip")),
+            ("xemu", false) => Some(("https://github.com/xemu-project/xemu/releases/download/v0.8.133/xemu-0.8.133-x86_64.AppImage", "xemu.AppImage")),
+
             // Other emulators would need manual implementation or usage of system packages
             _ => None
         }
@@ -68,6 +72,7 @@ impl EmulatorDownloader {
                  "rpcs3" => "rpcs3.exe",
                  "cemu" => "Cemu.exe",
                  "ryujinx" => "Ryujinx.exe",
+                 "xemu" => "xemu.exe",
                  _ => "emulator.exe"
              }.to_string()
         } else {
@@ -79,6 +84,7 @@ impl EmulatorDownloader {
                  "rpcs3" => "RPCS3.AppImage",
                  "cemu" => "Cemu.AppImage", 
                  "ryujinx" => "Ryujinx.AppImage",
+                 "xemu" => "xemu.AppImage",
                  _ => "emulator"
              }.to_string()
         }
