@@ -108,7 +108,7 @@ impl EmulatorDownloader {
                  "extract-xiso" => "extract-xiso",
                  "flycast" => "flycast.AppImage",
                  "azahar" => "azahar.AppImage", 
-                 "melonds" => "melonDS.AppImage", // Will handle zip extraction rename
+                 "melonds" => "melonDS", 
                  _ => "emulator"
              }.to_string()
         }
