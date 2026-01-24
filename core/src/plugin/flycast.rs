@@ -27,19 +27,81 @@ impl EmulatorPlugin for FlycastPlugin {
         Err(anyhow::anyhow!("Flycast executable not found."))
     }
 
-    fn prepare_launch_config(&self, rom_path: &Path, _output_dir: &Path) -> Result<LaunchConfig> {
+    fn prepare_launch_config(&self, rom_path: &Path, output_dir: &Path) -> Result<LaunchConfig> {
+        self.prepare_launch_config_with_specs(rom_path, output_dir, None, None)
+    }
+    
+    fn prepare_launch_config_with_specs(
+        &self,
+        rom_path: &Path,
+        _output_dir: &Path,
+        host_specs: Option<crate::plugin::HostSpecs>,
+        _progress: Option<&dyn Fn(String)>
+    ) -> Result<LaunchConfig> {
         let binary = self.find_binary().context("Failed to locate Flycast binary")?;
         
-        // Flycast Args: <rom> (works for AppImage/Binary)
-        let args = vec![];
+        let mut args = vec![];
+        
+        // --- Configuration Dynamique ---
+        if let Some(specs) = host_specs {
+            // 1. Renderer: Vulkan (4) ou OpenGL (0)
+            let renderer = if specs.vulkan_support { "4" } else { "0" };
+            args.push("-config".to_string());
+            args.push(format!("pvr:rend={}", renderer));
+
+            // 2. Fullscreen & Résolution
+            args.push("-config".to_string());
+            args.push("window:fullscreen=yes".to_string());
+            args.push("-config".to_string());
+            args.push(format!("window:width={}", specs.screen_width));
+            args.push("-config".to_string());
+            args.push(format!("window:height={}", specs.screen_height));
+
+            // 3. Scaling (Internal Resolution)
+            // Native Dreamcast est 640x480. On calcule un scale factor entier.
+            // On vise un supersampling léger (ex: 1440p interne pour écran 1080p donne une belle image AA).
+            let scale_factor = if specs.screen_height >= 2160 {
+                6 // 2880p pour 4K
+            } else if specs.screen_height >= 1440 {
+                4 // 1920p pour 1440p
+            } else if specs.screen_height >= 1080 {
+                3 // 1440p pour 1080p (Superbe rendu)
+            } else if specs.screen_height >= 720 {
+                2 // 960p pour 720p
+            } else {
+                1 // 480p natif
+            };
+            let internal_res = 480 * scale_factor;
+            
+            args.push("-config".to_string());
+            args.push(format!("rend:Resolution={}", internal_res));
+
+            // 4. Aspect Ratio (Widescreen)
+            // Si ratio écran > 1.7 (approx 16:9), on active le Widescreen Hack
+            let ratio = specs.screen_width as f32 / specs.screen_height as f32;
+            let widescreen = if ratio > 1.7 { "yes" } else { "no" };
+            args.push("-config".to_string());
+            args.push(format!("rend:WideScreen={}", widescreen));
+            
+            // 5. VSync (Toujours on pour éviter le tearing)
+            args.push("-config".to_string());
+            args.push("rend:vsync=yes".to_string());
+        } else {
+            // Fallback si pas de specs (ex: premier launch sans UI context)
+            // On force au moins le fullscreen standard
+            args.push("-config".to_string());
+            args.push("window:fullscreen=yes".to_string());
+        }
 
         Ok(LaunchConfig {
             emulator_path: binary,
             rom_path: rom_path.to_path_buf(),
             bios_path: None, 
-            args,
+            args, // Ces arguments seront passés AVANT le chemin de la ROM par défaut ? 
+                  // LaunchConfig met `args` + `rom` + `args_after_rom`.
+                  // Flycast accepte `flycast [options] rom`. C'est parfait.
             working_dir: None, 
-            args_after_rom: vec![], // Flycast takes ROM as last arg usually, but args_after_rom works too
+            args_after_rom: vec![],
             env_vars: vec![],
         })
     }
@@ -53,16 +115,8 @@ impl EmulatorPlugin for FlycastPlugin {
         Box::new(FlycastPlugin::new(Some(binary_path)))
     }
     
-    // Flycast fullscreen argument
+    // Flycast fullscreen argument via trait (backup, non utilisé si prepare_launch_config_with_specs fonctionne bien)
     fn fullscreen_args(&self) -> Vec<String> {
-        // Flycast CLI options likely allow starting fullscreen, or it remembers config.
-        // Recent Flycast accepts `flycast -config window:fullscreen=yes ROM` or similar?
-        // Checking documentation: Flycast doesn't have a simple `--fullscreen` flag in all versions, 
-        // but often respects config. Some sources say just launching is enough if config set.
-        // However, standard intuitive flag might be missing. 
-        // Let's assume user sets it in UI once, or we might need `emu.cfg` manipulation later.
-        // For now, return empty or investigate CLI.
-        // Found: `flycast "rom.gdi"` is standard.
-        vec![]
+        vec!["-config".to_string(), "window:fullscreen=yes".to_string()]
     }
 }
