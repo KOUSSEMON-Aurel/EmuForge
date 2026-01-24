@@ -69,13 +69,13 @@ impl EmulatorPlugin for AzaharPlugin {
         let config_dir = output_dir.join("config/azahar-emu");
         fs::create_dir_all(&config_dir).context("Failed to create config dir")?;
         
-        // Générer qt-config.ini avec mapping Manette UNIQUEMENT
-        // Azahar/Citra ne supporte qu'UN SEUL engine par bouton (ParamPackage écrase les clés dupliquées)
-        // Mapping basé sur la configuration fonctionnelle de l'utilisateur (Xbox Standard Layout)
-        // On utilise joystick:0 sans GUID pour être générique (auto-détection du premier controller)
+        // Générer qt-config.ini avec DEUX profils:
+        // - Profil 1 (index 0): Manette SDL (défaut si manette détectée)
+        // - Profil 2 (index 1): Clavier (fallback si pas de manette)
+        // Le stub modifiera dynamiquement "profile=X" avant le lancement
         let config_content = r#"[Controls]
 profile=0
-profiles\1\name=EmuForge
+profiles\1\name=EmuForge-Controller
 profiles\1\button_a="button:0,engine:sdl,joystick:0,port:0"
 profiles\1\button_b="button:1,engine:sdl,joystick:0,port:0"
 profiles\1\button_x="button:2,engine:sdl,joystick:0,port:0"
@@ -103,7 +103,35 @@ profiles\1\touch_from_button_map=0
 profiles\1\udp_input_address=127.0.0.1
 profiles\1\udp_input_port=26760
 profiles\1\udp_pad_index=0
-profiles\size=1
+profiles\2\name=EmuForge-Keyboard
+profiles\2\button_a="code:65,engine:keyboard"
+profiles\2\button_b="code:83,engine:keyboard"
+profiles\2\button_x="code:90,engine:keyboard"
+profiles\2\button_y="code:88,engine:keyboard"
+profiles\2\button_start="code:77,engine:keyboard"
+profiles\2\button_select="code:78,engine:keyboard"
+profiles\2\button_l="code:81,engine:keyboard"
+profiles\2\button_r="code:87,engine:keyboard"
+profiles\2\button_zl="code:49,engine:keyboard"
+profiles\2\button_zr="code:50,engine:keyboard"
+profiles\2\button_home="code:66,engine:keyboard"
+profiles\2\button_up="code:84,engine:keyboard"
+profiles\2\button_down="code:71,engine:keyboard"
+profiles\2\button_left="code:70,engine:keyboard"
+profiles\2\button_right="code:72,engine:keyboard"
+profiles\2\button_debug="code:79,engine:keyboard"
+profiles\2\button_gpio14="code:80,engine:keyboard"
+profiles\2\button_power="code:86,engine:keyboard"
+profiles\2\circle_pad="down:code$016777237$1engine$0keyboard,engine:analog_from_button,left:code$016777234$1engine$0keyboard,modifier:code$068$1engine$0keyboard,modifier_scale:0.500000,right:code$016777236$1engine$0keyboard,up:code$016777235$1engine$0keyboard"
+profiles\2\c_stick="down:code$075$1engine$0keyboard,engine:analog_from_button,left:code$074$1engine$0keyboard,modifier:code$068$1engine$0keyboard,modifier_scale:0.500000,right:code$076$1engine$0keyboard,up:code$073$1engine$0keyboard"
+profiles\2\motion_device="engine:motion_emu,sensitivity:0.01,tilt_clamp:90.0,update_period:100"
+profiles\2\touch_device=engine:emu_window
+profiles\2\use_touch_from_button=false
+profiles\2\touch_from_button_map=0
+profiles\2\udp_input_address=127.0.0.1
+profiles\2\udp_input_port=26760
+profiles\2\udp_pad_index=0
+profiles\size=2
 touch_from_button_maps\1\name=default
 touch_from_button_maps\1\entries\size=0
 touch_from_button_maps\size=1
@@ -137,7 +165,6 @@ use_virtual_sd=true
 "#;
 
         let config_path = config_dir.join("qt-config.ini");
-        // Toujours écraser pour garantir la config correcte
         fs::write(&config_path, config_content).context("Failed to write qt-config.ini")?;
         
         Ok(())

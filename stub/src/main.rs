@@ -209,6 +209,25 @@ fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
             eprintln!("⚠️ Erreur config manettes: {}", e);
         }
     }
+    
+    // === DÉTECTION DYNAMIQUE DES MANETTES POUR AZAHAR ===
+    // Basculer automatiquement entre profil Manette (0) et Clavier (1)
+    if config.driver_id == "azahar" {
+        eprintln!("🎮 Détection dynamique des manettes pour Azahar...");
+        let has_gamepad = detect_gamepad();
+        let profile_index = if has_gamepad { 0 } else { 1 };
+        eprintln!("   📊 Manette détectée: {} -> Profil: {}", has_gamepad, if has_gamepad { "Controller" } else { "Keyboard" });
+        
+        // Modifier le fichier qt-config.ini pour changer le profil actif
+        let config_file = target_dir.join("config/azahar-emu/qt-config.ini");
+        if config_file.exists() {
+            if let Err(e) = update_azahar_profile(&config_file, profile_index) {
+                eprintln!("⚠️ Erreur changement profil Azahar: {}", e);
+            } else {
+                eprintln!("✅ Profil Azahar mis à jour: {}", profile_index);
+            }
+        }
+    }
 
     // Launch the emulator
     let mut cmd = Command::new(&emulator_path);
