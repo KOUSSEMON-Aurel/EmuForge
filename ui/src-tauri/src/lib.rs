@@ -43,10 +43,22 @@ async fn forge_executable(
     // that knows about the user-provided binary path.
     let maybe_plugin = manager.configured_driver_for(&emu_p);
     
+    // Create progress callback
+    let app_handle = app.clone();
+    let progress_cb = move |msg: String| {
+        let _ = app_handle.emit("forge-progress", serde_json::json!({
+            "percentage": 0,
+            "message": msg
+        }));
+    };
+
     // We determine config AND driver_id in one go to avoid ownership issues
     let (mut config, driver_id) = if let Some(plugin) = &maybe_plugin {
-        let cfg = plugin.prepare_launch_config(&rom_p, Path::new(&output_dir))
-            .map_err(|e| format!("Plugin error: {}", e))?;
+        let cfg = plugin.prepare_launch_config_with_progress(
+            &rom_p, 
+            Path::new(&output_dir),
+            Some(&progress_cb)
+        ).map_err(|e| format!("Plugin error: {}", e))?;
         (cfg, plugin.id().to_string())
     } else {
         (LaunchConfig {

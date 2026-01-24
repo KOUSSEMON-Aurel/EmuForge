@@ -57,6 +57,10 @@ impl EmulatorDownloader {
             ("xemu", true) => Some(("https://github.com/xemu-project/xemu/releases/download/v0.8.133/xemu-0.8.133-windows-x86_64.zip", "xemu-windows.zip")),
             ("xemu", false) => Some(("https://github.com/xemu-project/xemu/releases/download/v0.8.133/xemu-0.8.133-x86_64.AppImage", "xemu.AppImage")),
 
+            // extract-xiso - Tool for XISO conversion
+            ("extract-xiso", true) => Some(("https://github.com/XboxDev/extract-xiso/releases/download/build-202505152050/extract-xiso-Win64_Release.zip", "extract-xiso.zip")),
+            ("extract-xiso", false) => Some(("https://github.com/XboxDev/extract-xiso/releases/download/build-202505152050/extract-xiso_Linux.zip", "extract-xiso.zip")),
+
             // Other emulators would need manual implementation or usage of system packages
             _ => None
         }
@@ -73,6 +77,7 @@ impl EmulatorDownloader {
                  "cemu" => "Cemu.exe",
                  "ryujinx" => "Ryujinx.exe",
                  "xemu" => "xemu.exe",
+                 "extract-xiso" => "extract-xiso.exe",
                  _ => "emulator.exe"
              }.to_string()
         } else {
@@ -85,6 +90,7 @@ impl EmulatorDownloader {
                  "cemu" => "Cemu.AppImage", 
                  "ryujinx" => "Ryujinx.AppImage",
                  "xemu" => "xemu.AppImage",
+                 "extract-xiso" => "extract-xiso",
                  _ => "emulator"
              }.to_string()
         }
@@ -148,6 +154,7 @@ impl EmulatorDownloader {
         
         let client = reqwest::Client::builder()
             .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36")
+            .timeout(std::time::Duration::from_secs(30))
             .build()
             .context("Failed to build http client")?;
 
@@ -173,19 +180,6 @@ impl EmulatorDownloader {
                 .context("Failed to extract 7z archive")?;
         } else if archive_name.ends_with(".AppImage") {
              // AppImage IS the binary.
-             // We need to name it correctly or just leave it.
-             // If we leave it as archive_name, we must update get_binary_name to match archive_name for AppImages?
-             // Currently get_binary_name expects "DuckStation.AppImage".
-             // archive_name is also "DuckStation.AppImage". 
-             // Logic holds.
-             
-             #[cfg(unix)]
-             {
-                 use std::os::unix::fs::PermissionsExt;
-                 let mut perms = fs::metadata(&temp_archive_path)?.permissions();
-                 perms.set_mode(0o755);
-                 fs::set_permissions(&temp_archive_path, perms)?;
-             }
         } else {
              // Generic file
         }
@@ -197,10 +191,19 @@ impl EmulatorDownloader {
 
         // After extraction, find binary using recursive search
         if let Some(found) = self.find_binary_recursive(&install_dir, &binary_name, 3) {
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if let Ok(metadata) = fs::metadata(&found) {
+                    let mut perms = metadata.permissions();
+                    perms.set_mode(0o755);
+                    let _ = fs::set_permissions(&found, perms);
+                }
+            }
             return Ok(found);
         }
         
-        // Fallback to predicted path if search fails (will likely throw error downstream but better than crash)
+        // Fallback
         Ok(install_dir.join(binary_name))
     }
     

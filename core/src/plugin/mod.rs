@@ -58,6 +58,28 @@ pub trait EmulatorPlugin: Send + Sync {
         Ok(())
     }
 
+    /// Version avec rapport de progression (Optionnel).
+    /// Par défaut appelle setup_environment sans progression.
+    fn setup_environment_with_progress(
+        &self,
+        output_dir: &Path,
+        bios_path: Option<&Path>,
+        _progress: Option<&dyn Fn(String)>,
+    ) -> Result<()> {
+        self.setup_environment(output_dir, bios_path)
+    }
+
+    /// Version avec rapport de progression pour prepare_launch_config.
+    /// Par défaut appelle prepare_launch_config.
+    fn prepare_launch_config_with_progress(
+        &self, 
+        rom_path: &Path, 
+        output_dir: &Path, 
+        _progress: Option<&dyn Fn(String)>
+    ) -> Result<LaunchConfig> {
+        self.prepare_launch_config(rom_path, output_dir)
+    }
+
     /// Indique si l'émulateur nécessite un wrapper script (ex: DuckStation qui ignore XDG).
     fn requires_wrapper(&self) -> bool {
         false
