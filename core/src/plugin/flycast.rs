@@ -44,51 +44,49 @@ impl EmulatorPlugin for FlycastPlugin {
         
         // --- Configuration Dynamique ---
         if let Some(specs) = host_specs {
-            // 1. Renderer: Vulkan (4) ou OpenGL (0)
+            // 1. Renderer: Vulkan (4) ou OpenGL (0) - Section [config] Key pvr.rend
             let renderer = if specs.vulkan_support { "4" } else { "0" };
             args.push("-config".to_string());
-            args.push(format!("pvr:rend={}", renderer));
+            args.push(format!("config:pvr.rend={}", renderer));
 
-            // 2. Fullscreen & Résolution
+            // 2. Fullscreen - Section [window] Key fullscreen
             args.push("-config".to_string());
             args.push("window:fullscreen=yes".to_string());
+            
+            // Résolution Fenêtre (si pas fullscreen ou pour la taille interne de la fenêtre)
             args.push("-config".to_string());
             args.push(format!("window:width={}", specs.screen_width));
             args.push("-config".to_string());
             args.push(format!("window:height={}", specs.screen_height));
 
-            // 3. Scaling (Internal Resolution)
-            // Native Dreamcast est 640x480. On calcule un scale factor entier.
-            // On vise un supersampling léger (ex: 1440p interne pour écran 1080p donne une belle image AA).
+            // 3. Scaling (Internal Resolution) - Section [config] Key rend.Resolution
             let scale_factor = if specs.screen_height >= 2160 {
-                6 // 2880p pour 4K
+                6 
             } else if specs.screen_height >= 1440 {
-                4 // 1920p pour 1440p
+                4 
             } else if specs.screen_height >= 1080 {
-                3 // 1440p pour 1080p (Superbe rendu)
+                3 
             } else if specs.screen_height >= 720 {
-                2 // 960p pour 720p
+                2 
             } else {
-                1 // 480p natif
+                1 
             };
             let internal_res = 480 * scale_factor;
             
             args.push("-config".to_string());
-            args.push(format!("rend:Resolution={}", internal_res));
+            args.push(format!("config:rend.Resolution={}", internal_res));
 
-            // 4. Aspect Ratio (Widescreen)
-            // Si ratio écran > 1.7 (approx 16:9), on active le Widescreen Hack
+            // 4. Aspect Ratio (Widescreen) - Section [config] Key rend.WideScreen
             let ratio = specs.screen_width as f32 / specs.screen_height as f32;
             let widescreen = if ratio > 1.7 { "yes" } else { "no" };
             args.push("-config".to_string());
-            args.push(format!("rend:WideScreen={}", widescreen));
+            args.push(format!("config:rend.WideScreen={}", widescreen));
             
-            // 5. VSync (Toujours on pour éviter le tearing)
+            // 5. VSync - Section [config] Key rend.vsync
             args.push("-config".to_string());
-            args.push("rend:vsync=yes".to_string());
+            args.push("config:rend.vsync=yes".to_string());
         } else {
-            // Fallback si pas de specs (ex: premier launch sans UI context)
-            // On force au moins le fullscreen standard
+            // Fallback
             args.push("-config".to_string());
             args.push("window:fullscreen=yes".to_string());
         }
