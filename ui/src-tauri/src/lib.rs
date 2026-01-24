@@ -56,12 +56,24 @@ async fn forge_executable(
         }));
     };
 
-    // Détecter le support Vulkan
-    let vulkan_support = Command::new("vulkaninfo")
-        .arg("--summary")
-        .output()
-        .map(|output| output.status.success())
-        .unwrap_or(false);
+    // Détecter le support Vulkan (Commande OU Librairie)
+    let vulkan_support = {
+        // 1. Essayer la commande standard
+        let cmd_success = Command::new("vulkaninfo")
+            .arg("--summary")
+            .output()
+            .map(|output| output.status.success())
+            .unwrap_or(false);
+        
+        // 2. Si échec, vérifier la présence de la librairie partagée (Linux)
+        if cmd_success {
+            true
+        } else {
+            std::path::Path::new("/usr/lib/libvulkan.so.1").exists() || 
+            std::path::Path::new("/usr/lib/x86_64-linux-gnu/libvulkan.so.1").exists() ||
+            std::path::Path::new("/usr/lib/libvulkan.so").exists()
+        }
+    };
     
     // Créer HostSpecs
     let host_specs = HostSpecs {
