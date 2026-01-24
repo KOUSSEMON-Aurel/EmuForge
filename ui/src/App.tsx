@@ -247,7 +247,7 @@ function App() {
       else if (pathLower.includes('xemu')) detectedPlugin = 'xemu';
       else if (pathLower.includes('lime3ds') || pathLower.includes('citra')) detectedPlugin = 'lime3ds';
       else if (pathLower.includes('melonds')) detectedPlugin = 'melonds';
-      else if (pathLower.includes('redream')) detectedPlugin = 'redream';
+      else if (pathLower.includes('flycast')) detectedPlugin = 'flycast';
 
       if (detectedPlugin !== 'auto') {
         // Auto-select the plugin
@@ -294,7 +294,7 @@ function App() {
       case 'xbox': return ['xemu'];
 
       // Sega
-      case 'dreamcast': return ['redream'];
+      case 'dreamcast': return ['flycast'];
 
       // Fallback si "unknown" mais extension connue (géré par analyzer.rs maintenant)
       default: return [];
@@ -654,7 +654,7 @@ function App() {
                   <option value="cemu">Cemu (Wii U)</option>
                   <option value="ryujinx">Ryujinx (Switch)</option>
                   <option value="xemu">xemu (Xbox)</option>
-                  <option value="redream">Redream (Dreamcast)</option>
+                  <option value="flycast">Flycast (Dreamcast)</option>
                   <option value="lime3ds">Lime3DS (3DS)</option>
                   <option value="melonds">melonDS (DS)</option>
                 </select>
