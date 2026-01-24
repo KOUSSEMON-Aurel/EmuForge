@@ -1,7 +1,9 @@
 use emuforge_core::forge::ExecutableForge;
 use emuforge_core::detection::FileAnalyzer;
+use emuforge_core::plugin::HostSpecs;
 use std::path::{Path, PathBuf};
 use std::io::{Write, Read};
+use std::process::Command;
 use tauri::Emitter;
 
 use std::sync::Mutex;
@@ -30,6 +32,8 @@ async fn forge_executable(
     fullscreen: bool,
     args: Vec<String>,
     portable_mode: Option<bool>,
+    screen_width: Option<u32>,
+    screen_height: Option<u32>,
 ) -> Result<String, String> {
     use emuforge_core::plugin::manager::PluginManager;
     use emuforge_core::forge::LaunchConfig;
@@ -52,11 +56,26 @@ async fn forge_executable(
         }));
     };
 
+    // Détecter le support Vulkan
+    let vulkan_support = Command::new("vulkaninfo")
+        .arg("--summary")
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false);
+    
+    // Créer HostSpecs
+    let host_specs = HostSpecs {
+        screen_width: screen_width.unwrap_or(1920),
+        screen_height: screen_height.unwrap_or(1080),
+        vulkan_support,
+    };
+
     // We determine config AND driver_id in one go to avoid ownership issues
     let (mut config, driver_id) = if let Some(plugin) = &maybe_plugin {
-        let cfg = plugin.prepare_launch_config_with_progress(
+        let cfg = plugin.prepare_launch_config_with_specs(
             &rom_p, 
             Path::new(&output_dir),
+            Some(host_specs),
             Some(&progress_cb)
         ).map_err(|e| format!("Plugin error: {}", e))?;
         (cfg, plugin.id().to_string())

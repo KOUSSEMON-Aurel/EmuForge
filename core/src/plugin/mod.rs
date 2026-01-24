@@ -17,6 +17,13 @@ pub struct ValidationResult {
     pub message: String,
     pub fixed: bool,
 }
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct HostSpecs {
+    pub screen_width: u32,
+    pub screen_height: u32,
+    pub vulkan_support: bool,
+}
+
 pub trait EmulatorPlugin: Send + Sync {
     /// Unique identifier for the emulator (e.g., "ppsspp").
     fn id(&self) -> &str;
@@ -78,6 +85,18 @@ pub trait EmulatorPlugin: Send + Sync {
         _progress: Option<&dyn Fn(String)>
     ) -> Result<LaunchConfig> {
         self.prepare_launch_config(rom_path, output_dir)
+    }
+
+    /// Version avec spécifications de l'hôte (résolution, vulkan, etc.)
+    /// Par défaut ignore les specs et appelle prepare_launch_config_with_progress.
+    fn prepare_launch_config_with_specs(
+        &self,
+        rom_path: &Path,
+        output_dir: &Path,
+        _host_specs: Option<HostSpecs>,
+        progress: Option<&dyn Fn(String)>
+    ) -> Result<LaunchConfig> {
+        self.prepare_launch_config_with_progress(rom_path, output_dir, progress)
     }
 
     /// Indique si l'émulateur nécessite un wrapper script (ex: DuckStation qui ignore XDG).

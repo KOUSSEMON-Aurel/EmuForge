@@ -1,5 +1,5 @@
 use crate::forge::LaunchConfig;
-use crate::plugin::{EmulatorPlugin, RequirementInfo, ValidationResult};
+use crate::plugin::{EmulatorPlugin, RequirementInfo, ValidationResult, HostSpecs};
 use crate::downloader::EmulatorDownloader;
 use anyhow::{Result, Context};
 use std::path::{Path, PathBuf};
@@ -26,8 +26,28 @@ impl XemuPlugin {
     }
 
     /// Génère un fichier xemu.toml complet avec tous les paramètres optimaux
-    fn generate_xemu_toml(output_dir: &Path, use_relative_paths: bool) -> Result<PathBuf> {
+    fn generate_xemu_toml(output_dir: &Path, use_relative_paths: bool, specs: &HostSpecs) -> Result<PathBuf> {
         let toml_path = output_dir.join("xemu.toml");
+        
+        // Configuration adaptative selon les specs du PC
+        let renderer = if specs.vulkan_support { "VULKAN" } else { "GL" };
+        
+        // Aspect ratio automatique selon la résolution de l'écran
+        let (width, height) = if specs.screen_width > 0 && specs.screen_height > 0 {
+            (specs.screen_width, specs.screen_height)
+        } else {
+            (1920, 1080) // Default si non fourni
+        };
+        let ratio = width as f32 / height as f32;
+        let aspect_ratio = if (ratio - 1.77).abs() < 0.15 { "16x9" } else { "4x3" };
+        
+        // Scale adaptatif selon la résolution
+        let scale = if height >= 1440 { 4 } 
+                    else if height >= 1080 { 3 } 
+                    else if height >= 720 { 2 }
+                    else { 1 };
+        
+        let startup_size = format!("{}x{}", width, height);
         
         // Chemins des fichiers BIOS
         let (bootrom, flashrom, eeprom, hdd) = if use_relative_paths {
@@ -68,19 +88,19 @@ eeprom_path = '{eeprom}'
 hdd_path = '{hdd}'
 
 [display]
-renderer = 'VULKAN'
+renderer = '{renderer}'
 
 [display.quality]
-surface_scale = 3
+surface_scale = {scale}
 
 [display.window]
 fullscreen_on_startup = true
-startup_size = '1920x1080'
-last_width = 1920
-last_height = 1080
+startup_size = '{startup_size}'
+last_width = {width}
+last_height = {height}
 
 [display.ui]
-aspect_ratio = '16x9'
+aspect_ratio = '{aspect_ratio}'
 show_menubar = true
 show_notifications = true
 hide_cursor = true
@@ -426,7 +446,18 @@ impl EmulatorPlugin for XemuPlugin {
     fn prepare_launch_config_with_progress(
         &self, 
         rom_path: &Path, 
-        _output_dir: &Path, 
+        output_dir: &Path, 
+        progress: Option<&dyn Fn(String)>
+    ) -> Result<LaunchConfig> {
+        // Déléguer à la version avec specs en utilisant les defaults
+        self.prepare_launch_config_with_specs(rom_path, output_dir, None, progress)
+    }
+
+    fn prepare_launch_config_with_specs(
+        &self,
+        rom_path: &Path,
+        _output_dir: &Path,
+        host_specs: Option<HostSpecs>,
         progress: Option<&dyn Fn(String)>
     ) -> Result<LaunchConfig> {
         let binary = self.find_binary().context("Failed to locate xemu binary")?;
@@ -437,6 +468,13 @@ impl EmulatorPlugin for XemuPlugin {
             if let Some(cb) = progress { cb(format!("⚠️ Conversion failed: {}", e)); }
             rom_path.to_path_buf()
         });
+
+        // Configurer xemu.toml avec les specs de l'hôte
+        let specs = host_specs.unwrap_or_default();
+        if let Some(config_dir) = Self::get_xemu_config_dir() {
+            fs::create_dir_all(&config_dir)?;
+            Self::generate_xemu_toml(&config_dir, false, &specs)?;
+        }
 
         // xemu Args: -dvd_path <iso> -full-screen -machine xbox,short-animation=on
         let args = vec![
@@ -513,7 +551,7 @@ impl EmulatorPlugin for XemuPlugin {
         }
 
         // Générer xemu.toml avec chemins relatifs pour portabilité
-        Self::generate_xemu_toml(&xemu_data, true)?;
+        Self::generate_xemu_toml(&xemu_data, true, &HostSpecs::default())?;
 
         Ok(())
     }
@@ -568,7 +606,7 @@ impl EmulatorPlugin for XemuPlugin {
         if mcpx_exists && bios_exists && hdd_exists && source_path.is_none() {
             // Regénérer le TOML si manquant
             if !toml_path.exists() {
-                let _ = Self::generate_xemu_toml(&xemu_config, false);
+                let _ = Self::generate_xemu_toml(&xemu_config, false, &HostSpecs::default());
             }
             return Ok(ValidationResult { 
                 valid: true, 
@@ -641,7 +679,7 @@ impl EmulatorPlugin for XemuPlugin {
 
         // Générer xemu.toml avec les chemins absolus
         if mcpx_installed && bios_installed && hdd_installed {
-            let _ = Self::generate_xemu_toml(&xemu_config, false);
+            let _ = Self::generate_xemu_toml(&xemu_config, false, &HostSpecs::default());
         }
 
         let all_installed = mcpx_installed && bios_installed && hdd_installed;

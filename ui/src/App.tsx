@@ -431,8 +431,9 @@ function App() {
         targetOs: targetOs,
         fullscreen,
         args: [],
-        portableMode: portableMode
-
+        portableMode: portableMode,
+        screenWidth: window.screen.width,
+        screenHeight: window.screen.height,
       });
       unlisten();
       setStatus(`Success! Executable ready at: ${result}`);
