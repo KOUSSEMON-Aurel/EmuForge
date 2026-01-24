@@ -16,7 +16,7 @@ impl RedreamPlugin {
 impl EmulatorPlugin for RedreamPlugin {
     fn id(&self) -> &str { "redream" }
     fn name(&self) -> &str { "Redream (Dreamcast)" }
-    fn supported_extensions(&self) -> &[&str] { &["gdi", "cdi", "chd"] }
+    fn supported_extensions(&self) -> &[&str] { &["gdi", "cdi", "chd", "cue"] }
 
     fn find_binary(&self) -> Result<PathBuf> {
         if let Some(path) = &self.custom_binary_path {
