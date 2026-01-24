@@ -245,7 +245,7 @@ function App() {
       else if (pathLower.includes('duckstation')) detectedPlugin = 'duckstation';
       else if (pathLower.includes('rpcs3')) detectedPlugin = 'rpcs3';
       else if (pathLower.includes('xemu')) detectedPlugin = 'xemu';
-      else if (pathLower.includes('lime3ds') || pathLower.includes('citra')) detectedPlugin = 'lime3ds';
+      else if (pathLower.includes('lime3ds') || pathLower.includes('citra') || pathLower.includes('azahar')) detectedPlugin = 'azahar';
       else if (pathLower.includes('melonds')) detectedPlugin = 'melonds';
       else if (pathLower.includes('flycast')) detectedPlugin = 'flycast';
 
@@ -280,7 +280,7 @@ function App() {
       case 'gamecube': return ['dolphin'];
       case 'switch': return ['ryujinx'];
       case 'wiiu': return ['cemu'];
-      case '3ds': return ['lime3ds'];
+      case '3ds': return ['azahar'];
       case 'nds': return ['melonds'];
 
       // Consoles Sony
