@@ -29,13 +29,13 @@ impl EmulatorPlugin for AzaharPlugin {
         if let Ok(path) = which::which("lime3ds") { return Ok(path); }
         // Fallback for Citra users? Maybe later.
         
-        Err(anyhow::anyhow!("Lime3DS executable not found."))
+        Err(anyhow::anyhow!("Azahar executable not found."))
     }
 
     fn prepare_launch_config(&self, rom_path: &Path, _output_dir: &Path) -> Result<LaunchConfig> {
-        let binary = self.find_binary().context("Failed to locate Lime3DS/Azahar binary")?;
+        let binary = self.find_binary().context("Failed to locate Azahar binary")?;
         
-        // Lime3DS Args: <rom>
+        // Azahar Args: <rom>
         // No complicate args needed usually.
         let args = vec![];
 
