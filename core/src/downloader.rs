@@ -67,7 +67,17 @@ impl EmulatorDownloader {
 
             // Azahar - 3DS Emulator (Azahar v2124.1 - Persistent GitHub Links)
             ("azahar", true) => Some(("https://github.com/azahar-emu/azahar/releases/download/2124.1/azahar-2124.1-windows-msvc.zip", "azahar.zip")),
-            ("azahar", false) => Some(("https://github.com/azahar-emu/azahar/releases/download/2124.1/azahar.AppImage", "azahar.AppImage")),
+            ("azahar", false) => {
+                // Détection dynamique Wayland
+                let is_wayland = std::env::var("XDG_SESSION_TYPE").unwrap_or_default() == "wayland" 
+                              || std::env::var("WAYLAND_DISPLAY").is_ok();
+                
+                if is_wayland {
+                    Some(("https://github.com/azahar-emu/azahar/releases/download/2124.1/azahar-wayland.AppImage", "azahar-wayland.AppImage"))
+                } else {
+                    Some(("https://github.com/azahar-emu/azahar/releases/download/2124.1/azahar.AppImage", "azahar.AppImage"))
+                }
+            },
 
             // melonDS - NDS Emulator (v1.1 - Persistent GitHub Links)
             ("melonds", true) => Some(("https://github.com/melonDS-emu/melonDS/releases/download/1.1/melonDS-1.1-windows-x86_64.zip", "melonds.zip")),
@@ -107,7 +117,19 @@ impl EmulatorDownloader {
                  "xemu" => "xemu.AppImage",
                  "extract-xiso" => "extract-xiso",
                  "flycast" => "flycast.AppImage",
-                 "azahar" => "azahar.AppImage", 
+                 "azahar" => {
+                      // Retourne le nom de fichier attendu selon l'environnement
+                      // NOTE: Cela sert surtout à vérifier si l'installation existe.
+                      // Idéalement, on devrait vérifier les deux ou celui qui correspond à l'OS.
+                      // Pour simplifier ici, si on est sous Wayland, on cherche d'abord azahar-wayland.
+                      let is_wayland = std::env::var("XDG_SESSION_TYPE").unwrap_or_default() == "wayland" 
+                                    || std::env::var("WAYLAND_DISPLAY").is_ok();
+                      if is_wayland {
+                          "azahar-wayland.AppImage"
+                      } else {
+                          "azahar.AppImage"
+                      }
+                 }, 
                  "melonds" => "melonDS-x86_64.AppImage", 
                  _ => "emulator"
              }.to_string()

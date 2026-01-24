@@ -450,3 +450,31 @@ pub fn update_ryujinx_input_config_at_path(config_dir: &Path) -> Result<(), Stri
     
     Ok(())
 }
+
+/// Récupère le GUID SDL brut de la première manette connectée (pour Azahar/Citra)
+pub fn get_first_controller_guid() -> Option<String> {
+    // Exécuter dans un thread comme pour generate_input_config
+    std::thread::spawn(|| {
+        if let Ok(sdl_context) = sdl2::init() {
+            if let Ok(game_controller_subsystem) = sdl_context.game_controller() {
+                if let Ok(joystick_subsystem) = sdl_context.joystick() {
+                    let available_joysticks = game_controller_subsystem.num_joysticks().unwrap_or(0);
+                    if available_joysticks > 0 {
+                        // Ouvrir le premier joystick
+                        if let Ok(joystick) = joystick_subsystem.open(0) {
+                            let guid = joystick.guid();
+                            let guid_bytes = guid.raw();
+                            
+                            // Retourner la chaîne hex brute (standard SDL)
+                            let hex_str: String = guid_bytes.data.iter()
+                                .map(|b| format!("{:02x}", b))
+                                .collect();
+                            return Some(hex_str);
+                        }
+                    }
+                }
+            }
+        }
+        None
+    }).join().unwrap_or(None)
+}

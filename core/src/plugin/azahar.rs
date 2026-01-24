@@ -24,6 +24,8 @@ impl EmulatorPlugin for AzaharPlugin {
         }
         if let Ok(path) = which::which("azahar") { return Ok(path); }
         if let Ok(path) = which::which("azahar-qt") { return Ok(path); }
+        if let Ok(path) = which::which("azahar-wayland") { return Ok(path); }
+        if let Ok(path) = which::which("azahar-wayland.AppImage") { return Ok(path); }
         if let Ok(path) = which::which("lime3ds-cli") { return Ok(path); }
         if let Ok(path) = which::which("lime3ds-gui") { return Ok(path); }
         if let Ok(path) = which::which("lime3ds") { return Ok(path); }
@@ -75,35 +77,36 @@ impl EmulatorPlugin for AzaharPlugin {
         // Le stub modifiera dynamiquement "profile=X" avant le lancement
         let config_content = r#"[Controls]
 profile=0
-profiles\1\name=EmuForge-Controller
-profiles\1\button_a="button:0,engine:sdl,joystick:0,port:0"
-profiles\1\button_b="button:1,engine:sdl,joystick:0,port:0"
-profiles\1\button_x="button:2,engine:sdl,joystick:0,port:0"
-profiles\1\button_y="button:3,engine:sdl,joystick:0,port:0"
-profiles\1\button_start="button:7,engine:sdl,joystick:0,port:0"
-profiles\1\button_select="button:6,engine:sdl,joystick:0,port:0"
-profiles\1\button_l="button:4,engine:sdl,joystick:0,port:0"
-profiles\1\button_r="button:5,engine:sdl,joystick:0,port:0"
-profiles\1\button_zl="axis:2,direction:+,engine:sdl,joystick:0,port:0,threshold:0.5"
-profiles\1\button_zr="axis:5,direction:+,engine:sdl,joystick:0,port:0,threshold:0.5"
-profiles\1\button_home="button:8,engine:sdl,joystick:0,port:0"
-profiles\1\button_up="direction:up,engine:sdl,hat:0,joystick:0,port:0"
-profiles\1\button_down="direction:down,engine:sdl,hat:0,joystick:0,port:0"
-profiles\1\button_left="direction:left,engine:sdl,hat:0,joystick:0,port:0"
-profiles\1\button_right="direction:right,engine:sdl,hat:0,joystick:0,port:0"
-profiles\1\button_debug="code:79,engine:keyboard"
-profiles\1\button_gpio14="code:80,engine:keyboard"
-profiles\1\button_power="code:86,engine:keyboard"
-profiles\1\circle_pad="down:axis$01$1direction$0+$1engine$0sdl$1joystick$00$1port$00$1threshold$00.5,engine:analog_from_button,left:axis$00$1direction$0-$1engine$0sdl$1joystick$00$1port$00$1threshold$0-0.5,modifier:code$068$1engine$0keyboard,modifier_scale:0.480000,right:axis$00$1direction$0+$1engine$0sdl$1joystick$00$1port$00$1threshold$00.5,up:axis$01$1direction$0-$1engine$0sdl$1joystick$00$1port$00$1threshold$0-0.5"
-profiles\1\c_stick="down:axis$04$1direction$0+$1engine$0sdl$1joystick$00$1port$00$1threshold$00.5,engine:analog_from_button,left:axis$03$1direction$0-$1engine$0sdl$1joystick$00$1port$00$1threshold$0-0.5,modifier:code$068$1engine$0keyboard,modifier_scale:0.500000,right:axis$03$1direction$0+$1engine$0sdl$1joystick$00$1port$00$1threshold$00.5,up:axis$04$1direction$0-$1engine$0sdl$1joystick$00$1port$00$1threshold$0-0.5"
-profiles\1\motion_device="engine:motion_emu,sensitivity:0.01,tilt_clamp:90.0,update_period:100"
+profile\default=true
+profiles\1\name=Manette
+        profiles\1\button_a="button:0,engine:sdl,guid:030081b85e0400008e02000010010000,port:0"
+        profiles\1\button_b="button:1,engine:sdl,guid:030081b85e0400008e02000010010000,port:0"
+        profiles\1\button_x="button:2,engine:sdl,guid:030081b85e0400008e02000010010000,port:0"
+        profiles\1\button_y="button:3,engine:sdl,guid:030081b85e0400008e02000010010000,port:0"
+        profiles\1\button_start="button:7,engine:sdl,guid:030081b85e0400008e02000010010000,port:0"
+        profiles\1\button_select="button:6,engine:sdl,guid:030081b85e0400008e02000010010000,port:0"
+        profiles\1\button_l="button:4,engine:sdl,guid:030081b85e0400008e02000010010000,port:0"
+        profiles\1\button_r="button:5,engine:sdl,guid:030081b85e0400008e02000010010000,port:0"
+        profiles\1\button_zl="axis:2,direction:+,engine:sdl,guid:030081b85e0400008e02000010010000,port:0,threshold:0.5"
+        profiles\1\button_zr="axis:5,direction:+,engine:sdl,guid:030081b85e0400008e02000010010000,port:0,threshold:0.5"
+        profiles\1\button_home="button:8,engine:sdl,guid:030081b85e0400008e02000010010000,port:0"
+        profiles\1\button_up="direction:up,engine:sdl,guid:030081b85e0400008e02000010010000,hat:0,port:0"
+        profiles\1\button_down="direction:down,engine:sdl,guid:030081b85e0400008e02000010010000,hat:0,port:0"
+        profiles\1\button_left="direction:left,engine:sdl,guid:030081b85e0400008e02000010010000,hat:0,port:0"
+        profiles\1\button_right="direction:right,engine:sdl,guid:030081b85e0400008e02000010010000,hat:0,port:0"
+        profiles\1\button_debug="code:79,engine:keyboard"
+        profiles\1\button_gpio14="code:80,engine:keyboard"
+        profiles\1\button_power="code:86,engine:keyboard"
+        profiles\1\circle_pad="down:axis$01$1direction$0+$1engine$0sdl$1guid$0030081b85e0400008e02000010010000$1port$00$1threshold$00.5,engine:analog_from_button,left:axis$00$1direction$0-$1engine$0sdl$1guid$0030081b85e0400008e02000010010000$1port$00$1threshold$0-0.5,modifier:code$068$1engine$0keyboard,modifier_scale:0.480000,right:axis$00$1direction$0+$1engine$0sdl$1guid$0030081b85e0400008e02000010010000$1port$00$1threshold$00.5,up:axis$01$1direction$0-$1engine$0sdl$1guid$0030081b85e0400008e02000010010000$1port$00$1threshold$0-0.5"
+        profiles\1\c_stick="down:axis$04$1direction$0+$1engine$0sdl$1guid$0030081b85e0400008e02000010010000$1port$00$1threshold$00.5,engine:analog_from_button,left:axis$03$1direction$0-$1engine$0sdl$1guid$0030081b85e0400008e02000010010000$1port$00$1threshold$0-0.5,modifier:code$068$1engine$0keyboard,modifier_scale:0.500000,right:axis$03$1direction$0+$1engine$0sdl$1guid$0030081b85e0400008e02000010010000$1port$00$1threshold$00.5,up:axis$04$1direction$0-$1engine$0sdl$1guid$0030081b85e0400008e02000010010000$1port$00$1threshold$0-0.5"
+profiles\1\motion_device="engine:motion_emu,update_period:100,sensitivity:0.01,tilt_clamp:90.0"
 profiles\1\touch_device=engine:emu_window
 profiles\1\use_touch_from_button=false
 profiles\1\touch_from_button_map=0
 profiles\1\udp_input_address=127.0.0.1
 profiles\1\udp_input_port=26760
 profiles\1\udp_pad_index=0
-profiles\2\name=EmuForge-Keyboard
+profiles\2\name=Clavier
 profiles\2\button_a="code:65,engine:keyboard"
 profiles\2\button_b="code:83,engine:keyboard"
 profiles\2\button_x="code:90,engine:keyboard"
@@ -124,7 +127,7 @@ profiles\2\button_gpio14="code:80,engine:keyboard"
 profiles\2\button_power="code:86,engine:keyboard"
 profiles\2\circle_pad="down:code$016777237$1engine$0keyboard,engine:analog_from_button,left:code$016777234$1engine$0keyboard,modifier:code$068$1engine$0keyboard,modifier_scale:0.500000,right:code$016777236$1engine$0keyboard,up:code$016777235$1engine$0keyboard"
 profiles\2\c_stick="down:code$075$1engine$0keyboard,engine:analog_from_button,left:code$074$1engine$0keyboard,modifier:code$068$1engine$0keyboard,modifier_scale:0.500000,right:code$076$1engine$0keyboard,up:code$073$1engine$0keyboard"
-profiles\2\motion_device="engine:motion_emu,sensitivity:0.01,tilt_clamp:90.0,update_period:100"
+profiles\2\motion_device="engine:motion_emu,update_period:100,sensitivity:0.01,tilt_clamp:90.0"
 profiles\2\touch_device=engine:emu_window
 profiles\2\use_touch_from_button=false
 profiles\2\touch_from_button_map=0
@@ -142,14 +145,15 @@ use_cpu_jit=true
 
 [Renderer]
 use_disk_shader_cache=true
-use_hw_renderer=true
 use_hw_shader=true
 shaders_accurate_mul=true
 use_shader_jit=true
+graphics_api=2
+resolution_factor=3
 
 [Layout]
 custom_layout=false
-single_screen_mode=false
+factor_3d=15
 
 [UI]
 fullscreen=true

@@ -213,18 +213,27 @@ fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
     // === DÉTECTION DYNAMIQUE DES MANETTES POUR AZAHAR ===
     // Basculer automatiquement entre profil Manette (0) et Clavier (1)
     if config.driver_id == "azahar" {
-        eprintln!("🎮 Détection dynamique des manettes pour Azahar...");
+        // Simple log for detection start
+        // eprintln!("🎮 [Azahar] Début détection manettes...");
+        
         let has_gamepad = detect_gamepad();
         let profile_index = if has_gamepad { 0 } else { 1 };
-        eprintln!("   📊 Manette détectée: {} -> Profil: {}", has_gamepad, if has_gamepad { "Controller" } else { "Keyboard" });
         
         // Modifier le fichier qt-config.ini pour changer le profil actif
         let config_file = target_dir.join("config/azahar-emu/qt-config.ini");
+        
         if config_file.exists() {
-            if let Err(e) = update_azahar_profile(&config_file, profile_index) {
-                eprintln!("⚠️ Erreur changement profil Azahar: {}", e);
+             // Fetch dynamic GUID
+             let guid = ryujinx_input::get_first_controller_guid();
+             if let Some(ref g) = guid {
+                 eprintln!("   🎮 GUID détecté et injecté: {}", g);
+             }
+
+             // Only log action
+            if let Err(e) = update_azahar_profile(&config_file, profile_index, guid.as_deref()) {
+                eprintln!("⚠️ [Azahar] Erreur changement profil: {}", e);
             } else {
-                eprintln!("✅ Profil Azahar mis à jour: {}", profile_index);
+                eprintln!("✅ [Azahar] Profil activé: {} ({})", profile_index, if has_gamepad { "Manette" } else { "Clavier" });
             }
         }
     }
@@ -235,6 +244,7 @@ fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
     // Set working directory to the extraction folder to avoid polluting the user's current directory
     // and ensure relative paths work as expected.
     cmd.current_dir(&target_dir);
+    eprintln!("📂 CWD set to: {:?}", target_dir);
     
     // === GENERIC LAUNCH LOGIC (from plugin config) ===
     
@@ -383,6 +393,62 @@ fn run_launcher_mode() {
         }
     }
 
+    // === DÉTECTION DYNAMIQUE DES MANETTES POUR AZAHAR (LAUNCHER MODE) ===
+    // Check if emulator path contains "azahar" or "lime3ds"
+    let emu_lower = config.emulator_path.to_string_lossy().to_lowercase();
+    if emu_lower.contains("azahar") || emu_lower.contains("lime3ds") {
+         eprintln!("🎮 [Azahar-Launcher] Début détection manettes...");
+         
+         // 1. Detect Gamepad
+         if let Ok(entries) = std::fs::read_dir("/dev/input") {
+             for entry in entries.flatten() {
+                 if let Some(name) = entry.file_name().to_str() {
+                     if name.starts_with("js") {
+                         eprintln!("      🕹️ Trouvé: {:?}", name);
+                     }
+                 }
+             }
+         }
+         
+         let has_gamepad = detect_gamepad();
+         let profile_index = if has_gamepad { 0 } else { 1 };
+         eprintln!("   📊 [Azahar-Launcher] Manette: {} -> Profil: {}", has_gamepad, profile_index);
+         
+         // 2. Find config path via XDG_CONFIG_HOME in env_vars
+         let mut config_home = None;
+         for (key, val) in &config.env_vars {
+             if key == "XDG_CONFIG_HOME" {
+                 config_home = Some(PathBuf::from(val));
+                 break;
+             }
+         }
+         
+         if let Some(path) = config_home {
+             let config_file = path.join("azahar-emu/qt-config.ini");
+             eprintln!("   📂 [Azahar-Launcher] Config cible: {:?}", config_file);
+             
+             if config_file.exists() {
+                 eprintln!("   ✅ Fichier trouvé. Mise à jour...");
+                 
+                 // Fetch dynamic GUID
+                 let guid = ryujinx_input::get_first_controller_guid();
+                 if let Some(ref g) = guid {
+                     eprintln!("   🎮 GUID détecté et injecté: {}", g);
+                 }
+                 
+                 if let Err(e) = update_azahar_profile(&config_file, profile_index, guid.as_deref()) {
+                     eprintln!("   ⚠️ Erreur mise à jour: {}", e);
+                 } else {
+                     eprintln!("   ✅ Profil mis à jour vers: {}", profile_index);
+                 }
+             } else {
+                 eprintln!("   ❌ Fichier introuvable.");
+             }
+         } else {
+             eprintln!("   ⚠️ XDG_CONFIG_HOME non trouvé dans les variables d'environnement.");
+         }
+    }
+
     let mut cmd = Command::new(&config.emulator_path);
     
     if let Some(working_dir) = config.working_dir {
@@ -491,12 +557,16 @@ fn detect_gamepad() -> bool {
     false
 }
 
-/// Update Azahar config profile
-fn update_azahar_profile(config_path: &PathBuf, profile_index: i32) -> io::Result<()> {
+/// Update Azahar config profile and GUID
+fn update_azahar_profile(config_path: &PathBuf, profile_index: i32, new_guid: Option<&str>) -> io::Result<()> {
     // Read the file content
     let content = fs::read_to_string(config_path)?;
     let mut new_lines = Vec::new();
     let mut in_controls = false;
+
+    // Detect if we need to replace GUID
+    // We look for the hardcoded GUID from the generator or any existing GUID
+    let guid_regex = regex::Regex::new(r"guid:[a-fA-F0-9]{32}").unwrap();
 
     for line in content.lines() {
         if line.trim() == "[Controls]" {
@@ -512,6 +582,21 @@ fn update_azahar_profile(config_path: &PathBuf, profile_index: i32) -> io::Resul
                 // Modify active profile
                 new_lines.push(format!("profile={}", profile_index));
                 continue;
+            } else if line.trim().starts_with(r"profile\default") || line.trim().starts_with("profile/default") {
+                // Force default to false so our profile choice is respected
+                new_lines.push(r"profile\default=false".to_string());
+                continue;
+            }
+            
+            // GUID Replacement if available
+            if let Some(guid) = new_guid {
+                // Check if line contains a GUID
+                if line.contains("guid:") {
+                    let new_guid_str = format!("guid:{}", guid);
+                    let new_line = guid_regex.replace(line, &new_guid_str).to_string();
+                    new_lines.push(new_line);
+                    continue;
+                }
             }
         }
         
