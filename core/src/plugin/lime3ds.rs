@@ -15,13 +15,15 @@ impl Lime3DSPlugin {
 
 impl EmulatorPlugin for Lime3DSPlugin {
     fn id(&self) -> &str { "lime3ds" }
-    fn name(&self) -> &str { "Lime3DS (3DS)" }
+    fn name(&self) -> &str { "Azahar (3DS)" }
     fn supported_extensions(&self) -> &[&str] { &["3ds", "cia", "cxi", "cci", "3dsx"] }
 
     fn find_binary(&self) -> Result<PathBuf> {
         if let Some(path) = &self.custom_binary_path {
             if path.exists() { return Ok(path.clone()); }
         }
+        if let Ok(path) = which::which("azahar") { return Ok(path); }
+        if let Ok(path) = which::which("azahar-qt") { return Ok(path); }
         if let Ok(path) = which::which("lime3ds-cli") { return Ok(path); }
         if let Ok(path) = which::which("lime3ds-gui") { return Ok(path); }
         if let Ok(path) = which::which("lime3ds") { return Ok(path); }
@@ -31,7 +33,7 @@ impl EmulatorPlugin for Lime3DSPlugin {
     }
 
     fn prepare_launch_config(&self, rom_path: &Path, _output_dir: &Path) -> Result<LaunchConfig> {
-        let binary = self.find_binary().context("Failed to locate Lime3DS binary")?;
+        let binary = self.find_binary().context("Failed to locate Lime3DS/Azahar binary")?;
         
         // Lime3DS Args: <rom>
         // No complicate args needed usually.
@@ -50,7 +52,7 @@ impl EmulatorPlugin for Lime3DSPlugin {
 
     fn can_handle(&self, binary_path: &Path) -> bool {
         let name = binary_path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_lowercase();
-        name.contains("lime3ds") || name.contains("citra")
+        name.contains("lime3ds") || name.contains("citra") || name.contains("azahar")
     }
 
     fn clone_with_path(&self, binary_path: PathBuf) -> Box<dyn EmulatorPlugin> {

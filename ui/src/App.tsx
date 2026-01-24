@@ -456,7 +456,7 @@ function App() {
     { id: 'ryujinx', name: 'Ryujinx', desc: 'Nintendo Switch' },
     { id: 'cemu', name: 'Cemu', desc: 'Wii U' },
     { id: 'melonds', name: 'melonDS', desc: 'Nintendo DS' },
-    { id: 'lime3ds', name: 'Lime3DS', desc: 'Nintendo 3DS' },
+    { id: 'lime3ds', name: 'Azahar', desc: 'Nintendo 3DS' },
     { id: 'flycast', name: 'Flycast', desc: 'Dreamcast' },
     { id: 'rpcs3', name: 'RPCS3', desc: 'PlayStation 3' },
     { id: 'xemu', name: 'xemu', desc: 'Original Xbox' },
@@ -655,7 +655,7 @@ function App() {
                   <option value="ryujinx">Ryujinx (Switch)</option>
                   <option value="xemu">xemu (Xbox)</option>
                   <option value="flycast">Flycast (Dreamcast)</option>
-                  <option value="lime3ds">Lime3DS (3DS)</option>
+                  <option value="lime3ds">Azahar (3DS)</option>
                   <option value="melonds">melonDS (DS)</option>
                 </select>
               </div>
