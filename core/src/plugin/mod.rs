@@ -182,7 +182,7 @@ pub mod cemu;
 pub mod xemu;
 pub mod lime3ds;
 pub mod melonds;
-pub mod redream;
+pub mod flycast;
 pub mod manager;
 
 

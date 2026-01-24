@@ -25,7 +25,7 @@ impl PluginManager {
                 Box::new(xemu::XemuPlugin::new(None)),
                 Box::new(lime3ds::Lime3DSPlugin::new(None)),
                 Box::new(melonds::MelonDSPlugin::new(None)),
-                Box::new(redream::RedreamPlugin::new(None)),
+                Box::new(flycast::FlycastPlugin::new(None)),
             ]
         }
     }

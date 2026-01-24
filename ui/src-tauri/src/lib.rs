@@ -715,7 +715,7 @@ async fn get_installed_emulators() -> Result<Vec<String>, String> {
     // Check list of known emulators
     // Ideally we iterate known plugins or a static list.
     // For now, let's just check the ones we hardcoded in downloader logic or UI.
-    let candidates = vec!["ppsspp", "pcsx2", "duckstation", "dolphin", "cemu", "rpcs3", "ryujinx", "xemu", "redream"];
+    let candidates = vec!["ppsspp", "pcsx2", "duckstation", "dolphin", "cemu", "rpcs3", "ryujinx", "xemu", "flycast"];
     
     let mut installed = vec![];
     for id in candidates {

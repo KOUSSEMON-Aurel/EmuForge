@@ -61,9 +61,9 @@ impl EmulatorDownloader {
             ("extract-xiso", true) => Some(("https://github.com/XboxDev/extract-xiso/releases/download/build-202505152050/extract-xiso-Win64_Release.zip", "extract-xiso.zip")),
             ("extract-xiso", false) => Some(("https://github.com/XboxDev/extract-xiso/releases/download/build-202505152050/extract-xiso_Linux.zip", "extract-xiso.zip")),
 
-            // Redream - Dreamcast Emulator (v1.5.0)
-            ("redream", true) => Some(("https://redream.io/download/redream.x86_64-windows-v1.5.0.zip", "redream.zip")),
-            ("redream", false) => Some(("https://redream.io/download/redream.x86_64-linux-v1.5.0.tar.gz", "redream.tar.gz")),
+            // Flycast - Dreamcast Emulator (v2.6 Stable)
+            ("flycast", true) => Some(("https://github.com/flyinghead/flycast/releases/download/v2.6/flycast-win64-2.6.zip", "flycast.zip")),
+            ("flycast", false) => Some(("https://github.com/flyinghead/flycast/releases/download/v2.6/flycast-x86_64.AppImage", "flycast.AppImage")),
 
             // Other emulators would need manual implementation or usage of system packages
             _ => None
@@ -82,7 +82,7 @@ impl EmulatorDownloader {
                  "ryujinx" => "Ryujinx.exe",
                  "xemu" => "xemu.exe",
                  "extract-xiso" => "extract-xiso.exe",
-                 "redream" => "redream.exe",
+                 "flycast" => "flycast.exe",
                  _ => "emulator.exe"
              }.to_string()
         } else {
@@ -96,7 +96,7 @@ impl EmulatorDownloader {
                  "ryujinx" => "Ryujinx.AppImage",
                  "xemu" => "xemu.AppImage",
                  "extract-xiso" => "extract-xiso",
-                 "redream" => "redream",
+                 "flycast" => "flycast.AppImage",
                  _ => "emulator"
              }.to_string()
         }
