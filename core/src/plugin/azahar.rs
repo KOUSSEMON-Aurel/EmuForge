@@ -3,18 +3,18 @@ use crate::plugin::EmulatorPlugin;
 use anyhow::{Result, Context};
 use std::path::{Path, PathBuf};
 
-pub struct Lime3DSPlugin {
+pub struct AzaharPlugin {
     pub custom_binary_path: Option<PathBuf>,
 }
 
-impl Lime3DSPlugin {
+impl AzaharPlugin {
     pub fn new(custom_binary_path: Option<PathBuf>) -> Self {
         Self { custom_binary_path }
     }
 }
 
-impl EmulatorPlugin for Lime3DSPlugin {
-    fn id(&self) -> &str { "lime3ds" }
+impl EmulatorPlugin for AzaharPlugin {
+    fn id(&self) -> &str { "azahar" }
     fn name(&self) -> &str { "Azahar (3DS)" }
     fn supported_extensions(&self) -> &[&str] { &["3ds", "cia", "cxi", "cci", "3dsx"] }
 
@@ -56,6 +56,6 @@ impl EmulatorPlugin for Lime3DSPlugin {
     }
 
     fn clone_with_path(&self, binary_path: PathBuf) -> Box<dyn EmulatorPlugin> {
-        Box::new(Lime3DSPlugin::new(Some(binary_path)))
+        Box::new(AzaharPlugin::new(Some(binary_path)))
     }
 }

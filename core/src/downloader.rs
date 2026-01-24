@@ -65,9 +65,9 @@ impl EmulatorDownloader {
             ("flycast", true) => Some(("https://github.com/flyinghead/flycast/releases/download/v2.6/flycast-win64-2.6.zip", "flycast.zip")),
             ("flycast", false) => Some(("https://github.com/flyinghead/flycast/releases/download/v2.6/flycast-x86_64.AppImage", "flycast.AppImage")),
 
-            // Lime3DS/Azahar - 3DS Emulator (Azahar v2124.1 - Persistent GitHub Links)
-            ("lime3ds", true) => Some(("https://github.com/azahar-emu/azahar/releases/download/2124.1/azahar-2124.1-windows-msvc.zip", "azahar.zip")),
-            ("lime3ds", false) => Some(("https://github.com/azahar-emu/azahar/releases/download/2124.1/azahar.AppImage", "azahar.AppImage")),
+            // Azahar - 3DS Emulator (Azahar v2124.1 - Persistent GitHub Links)
+            ("azahar", true) => Some(("https://github.com/azahar-emu/azahar/releases/download/2124.1/azahar-2124.1-windows-msvc.zip", "azahar.zip")),
+            ("azahar", false) => Some(("https://github.com/azahar-emu/azahar/releases/download/2124.1/azahar.AppImage", "azahar.AppImage")),
 
             // melonDS - NDS Emulator (v1.1 - Persistent GitHub Links)
             ("melonds", true) => Some(("https://github.com/melonDS-emu/melonDS/releases/download/1.1/melonDS-1.1-windows-x86_64.zip", "melonds.zip")),
@@ -91,7 +91,7 @@ impl EmulatorDownloader {
                  "xemu" => "xemu.exe",
                  "extract-xiso" => "extract-xiso.exe",
                  "flycast" => "flycast.exe",
-                 "lime3ds" => "azahar.exe", 
+                 "azahar" => "azahar.exe", 
                  "melonds" => "melonDS.exe",
                  _ => "emulator.exe"
              }.to_string()
@@ -107,7 +107,7 @@ impl EmulatorDownloader {
                  "xemu" => "xemu.AppImage",
                  "extract-xiso" => "extract-xiso",
                  "flycast" => "flycast.AppImage",
-                 "lime3ds" => "azahar.AppImage", 
+                 "azahar" => "azahar.AppImage", 
                  "melonds" => "melonDS.AppImage", // Will handle zip extraction rename
                  _ => "emulator"
              }.to_string()

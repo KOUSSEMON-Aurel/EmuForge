@@ -23,7 +23,7 @@ impl PluginManager {
                 Box::new(ryujinx::RyujinxPlugin::new(None)),
                 Box::new(cemu::CemuPlugin::new(None)),
                 Box::new(xemu::XemuPlugin::new(None)),
-                Box::new(lime3ds::Lime3DSPlugin::new(None)),
+                Box::new(azahar::AzaharPlugin::new(None)),
                 Box::new(melonds::MelonDSPlugin::new(None)),
                 Box::new(flycast::FlycastPlugin::new(None)),
             ]

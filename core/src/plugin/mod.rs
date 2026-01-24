@@ -180,7 +180,7 @@ pub mod rpcs3;
 pub mod ryujinx;
 pub mod cemu;
 pub mod xemu;
-pub mod lime3ds;
+pub mod azahar;
 pub mod melonds;
 pub mod flycast;
 pub mod manager;
