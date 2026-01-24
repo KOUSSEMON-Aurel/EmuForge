@@ -69,34 +69,59 @@ impl EmulatorPlugin for AzaharPlugin {
         let config_dir = output_dir.join("config/azahar-emu");
         fs::create_dir_all(&config_dir).context("Failed to create config dir")?;
         
-        // Générer qt-config.ini avec mapping Manette + Clavier
+        // Générer qt-config.ini avec mapping Manette UNIQUEMENT
+        // Azahar/Citra ne supporte qu'UN SEUL engine par bouton (ParamPackage écrase les clés dupliquées)
+        // Mapping basé sur la configuration fonctionnelle de l'utilisateur (Xbox Standard Layout)
+        // On utilise joystick:0 sans GUID pour être générique (auto-détection du premier controller)
         let config_content = r#"[Controls]
 profile=0
-profiles\1\name=Default
-profiles\1\button_a="engine:sdl,joystick:0,button:1,engine:keyboard,code:65"
-profiles\1\button_b="engine:sdl,joystick:0,button:0,engine:keyboard,code:83"
-profiles\1\button_x="engine:sdl,joystick:0,button:3,engine:keyboard,code:90"
-profiles\1\button_y="engine:sdl,joystick:0,button:2,engine:keyboard,code:88"
-profiles\1\button_start="engine:sdl,joystick:0,button:7,engine:keyboard,code:77"
-profiles\1\button_select="engine:sdl,joystick:0,button:6,engine:keyboard,code:78"
-profiles\1\button_l="engine:sdl,joystick:0,button:4,engine:keyboard,code:81"
-profiles\1\button_r="engine:sdl,joystick:0,button:5,engine:keyboard,code:87"
-profiles\1\button_zl="engine:sdl,joystick:0,axis:2,direction:+,threshold:0.5,engine:keyboard,code:49"
-profiles\1\button_zr="engine:sdl,joystick:0,axis:5,direction:+,threshold:0.5,engine:keyboard,code:50"
-profiles\1\button_home="engine:sdl,joystick:0,button:8,engine:keyboard,code:66"
-profiles\1\button_up="engine:sdl,joystick:0,hat:0,direction:up,engine:keyboard,code:84"
-profiles\1\button_down="engine:sdl,joystick:0,hat:0,direction:down,engine:keyboard,code:71"
-profiles\1\button_left="engine:sdl,joystick:0,hat:0,direction:left,engine:keyboard,code:70"
-profiles\1\button_right="engine:sdl,joystick:0,hat:0,direction:right,engine:keyboard,code:72"
-profiles\1\circle_pad="engine:sdl,joystick:0,axis_x:0,axis_y:1,engine:keyboard,up:code:84,down:code:71,left:code:70,right:72"
-profiles\1\c_stick="engine:sdl,joystick:0,axis_x:3,axis_y:4,engine:keyboard,up:code:73,down:code:75,left:code:74,right:76"
+profiles\1\name=EmuForge
+profiles\1\button_a="button:0,engine:sdl,joystick:0,port:0"
+profiles\1\button_b="button:1,engine:sdl,joystick:0,port:0"
+profiles\1\button_x="button:2,engine:sdl,joystick:0,port:0"
+profiles\1\button_y="button:3,engine:sdl,joystick:0,port:0"
+profiles\1\button_start="button:7,engine:sdl,joystick:0,port:0"
+profiles\1\button_select="button:6,engine:sdl,joystick:0,port:0"
+profiles\1\button_l="button:4,engine:sdl,joystick:0,port:0"
+profiles\1\button_r="button:5,engine:sdl,joystick:0,port:0"
+profiles\1\button_zl="axis:2,direction:+,engine:sdl,joystick:0,port:0,threshold:0.5"
+profiles\1\button_zr="axis:5,direction:+,engine:sdl,joystick:0,port:0,threshold:0.5"
+profiles\1\button_home="button:8,engine:sdl,joystick:0,port:0"
+profiles\1\button_up="direction:up,engine:sdl,hat:0,joystick:0,port:0"
+profiles\1\button_down="direction:down,engine:sdl,hat:0,joystick:0,port:0"
+profiles\1\button_left="direction:left,engine:sdl,hat:0,joystick:0,port:0"
+profiles\1\button_right="direction:right,engine:sdl,hat:0,joystick:0,port:0"
+profiles\1\button_debug="code:79,engine:keyboard"
+profiles\1\button_gpio14="code:80,engine:keyboard"
+profiles\1\button_power="code:86,engine:keyboard"
+profiles\1\circle_pad="down:axis$01$1direction$0+$1engine$0sdl$1joystick$00$1port$00$1threshold$00.5,engine:analog_from_button,left:axis$00$1direction$0-$1engine$0sdl$1joystick$00$1port$00$1threshold$0-0.5,modifier:code$068$1engine$0keyboard,modifier_scale:0.480000,right:axis$00$1direction$0+$1engine$0sdl$1joystick$00$1port$00$1threshold$00.5,up:axis$01$1direction$0-$1engine$0sdl$1joystick$00$1port$00$1threshold$0-0.5"
+profiles\1\c_stick="down:axis$04$1direction$0+$1engine$0sdl$1joystick$00$1port$00$1threshold$00.5,engine:analog_from_button,left:axis$03$1direction$0-$1engine$0sdl$1joystick$00$1port$00$1threshold$0-0.5,modifier:code$068$1engine$0keyboard,modifier_scale:0.500000,right:axis$03$1direction$0+$1engine$0sdl$1joystick$00$1port$00$1threshold$00.5,up:axis$04$1direction$0-$1engine$0sdl$1joystick$00$1port$00$1threshold$0-0.5"
+profiles\1\motion_device="engine:motion_emu,sensitivity:0.01,tilt_clamp:90.0,update_period:100"
+profiles\1\touch_device=engine:emu_window
+profiles\1\use_touch_from_button=false
+profiles\1\touch_from_button_map=0
+profiles\1\udp_input_address=127.0.0.1
+profiles\1\udp_input_port=26760
+profiles\1\udp_pad_index=0
 profiles\size=1
+touch_from_button_maps\1\name=default
+touch_from_button_maps\1\entries\size=0
+touch_from_button_maps\size=1
+use_artic_base_controller=false
 
 [Core]
-# Default core settings
+use_cpu_jit=true
 
 [Renderer]
 use_disk_shader_cache=true
+use_hw_renderer=true
+use_hw_shader=true
+shaders_accurate_mul=true
+use_shader_jit=true
+
+[Layout]
+custom_layout=false
+single_screen_mode=false
 
 [UI]
 fullscreen=true
@@ -112,9 +137,8 @@ use_virtual_sd=true
 "#;
 
         let config_path = config_dir.join("qt-config.ini");
-        if !config_path.exists() {
-            fs::write(config_path, config_content).context("Failed to write qt-config.ini")?;
-        }
+        // Toujours écraser pour garantir la config correcte
+        fs::write(&config_path, config_content).context("Failed to write qt-config.ini")?;
         
         Ok(())
     }
