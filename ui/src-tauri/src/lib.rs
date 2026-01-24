@@ -444,7 +444,8 @@ fn forge_portable_executable(
         "fullscreen": fullscreen,
         "env_vars": env_vars_list,
         "args_before_rom": args_before,
-        "args_after_rom": args_after
+        "args_after_rom": args_after,
+        "driver_id": driver_id  // Identifiant du plugin pour la détection dynamique
     });
     let config_json = serde_json::to_vec(&portable_config)
         .map_err(|e| format!("Failed to serialize config: {}", e))?;

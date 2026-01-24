@@ -9,3 +9,4 @@ serde.workspace = true
 serde_json.workspace = true
 zip = "2.2"
 dirs = "5.0"
+sdl2 = "0.38.0"

@@ -1,6 +1,8 @@
 // Hide console window on Windows in release mode
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod ryujinx_input;
+
 use serde::Deserialize;
 use std::env;
 use std::fs::{self, File};
@@ -42,6 +44,8 @@ struct PortableConfig {
     args_before_rom: Vec<String>,
     #[serde(default)]
     args_after_rom: Vec<String>,
+    #[serde(default)]
+    driver_id: String,  // Identifiant du plugin (ryujinx, pcsx2, etc.)
 }
 
 fn main() {
@@ -196,6 +200,16 @@ fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
         eprintln!("   ❌ Invalid path (metadata failed)");
     }
 
+    // === DÉTECTION DYNAMIQUE DES MANETTES POUR RYUJINX ===
+    // Utilise driver_id de la config portable (plus fiable que deviner à partir du nom)
+    if config.driver_id == "ryujinx" {
+        eprintln!("🎮 Détection dynamique des manettes pour Ryujinx (mode portable)...");
+        // Ryujinx lit toujours depuis ~/.config/Ryujinx/ même en mode portable
+        if let Err(e) = ryujinx_input::update_ryujinx_input_config() {
+            eprintln!("⚠️ Erreur config manettes: {}", e);
+        }
+    }
+
     // Launch the emulator
     let mut cmd = Command::new(&emulator_path);
     
@@ -342,6 +356,14 @@ fn run_launcher_mode() {
         }
     }
 
+    // === DÉTECTION DYNAMIQUE DES MANETTES POUR RYUJINX ===
+    if is_ryujinx_emulator(&config.emulator_path) {
+        eprintln!("🎮 Détection dynamique des manettes pour Ryujinx...");
+        if let Err(e) = ryujinx_input::update_ryujinx_input_config() {
+            eprintln!("⚠️ Erreur config manettes: {}", e);
+        }
+    }
+
     let mut cmd = Command::new(&config.emulator_path);
     
     if let Some(working_dir) = config.working_dir {
@@ -390,4 +412,47 @@ fn run_launcher_mode() {
 
     let mut child = cmd.spawn().expect("Failed to launch emulator");
     let _ = child.wait();
+}
+
+/// Vérifie si l'émulateur est Ryujinx (pour activer la détection dynamique des manettes)
+fn is_ryujinx_emulator(path: &std::path::Path) -> bool {
+    // 1. Vérifie le chemin complet (contient "ryujinx" quelque part)
+    let full_path = path.to_string_lossy().to_lowercase();
+    if full_path.contains("ryujinx") {
+        return true;
+    }
+    
+    // 2. Vérifie si c'est un AppRun dans un dossier squashfs-root qui contient Ryujinx
+    if path.file_name().map(|n| n == "AppRun").unwrap_or(false) {
+        // Chercher usr/bin/Ryujinx dans le même dossier
+        if let Some(parent) = path.parent() {
+            let ryujinx_bin = parent.join("usr/bin/Ryujinx");
+            if ryujinx_bin.exists() {
+                return true;
+            }
+            let ryujinx_bin_alt = parent.join("usr/bin/Ryujinx.sh");
+            if ryujinx_bin_alt.exists() {
+                return true;
+            }
+        }
+    }
+    
+    // 3. Remonte les parents pour chercher "ryujinx" dans le chemin
+    let mut current = path.parent();
+    for _ in 0..5 {  // Max 5 niveaux
+        if let Some(parent) = current {
+            let parent_name = parent.file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+            if parent_name.contains("ryujinx") {
+                return true;
+            }
+            current = parent.parent();
+        } else {
+            break;
+        }
+    }
+    
+    false
 }
