@@ -489,12 +489,30 @@ fn forge_portable_executable(
             add_directory_to_zip(&app, &mut zip, &duckstation_home, ".duckstation_home", options)?;
         }
     }
+
+    // GENERIC: Add 'config' and 'data' folders if they exist (Used by Azahar and others)
+    let config_dir_generic = temp_work_dir.join("config");
+    if config_dir_generic.exists() {
+        println!("✅ config folder ajouté au ZIP (Generic/Azahar)");
+        add_directory_to_zip(&app, &mut zip, &config_dir_generic, "config", options)?;
+    }
+    
+    let data_dir_generic = temp_work_dir.join("data");
+    if data_dir_generic.exists() {
+        println!("✅ data folder ajouté au ZIP (Generic/Azahar)");
+        add_directory_to_zip(&app, &mut zip, &data_dir_generic, "data", options)?;
+    }
     
     zip.finish().map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
     
     // Step 3: Create the portable config JSON
     // Récupérer les env_vars et args depuis le plugin
-    let config_dir_name = if driver_id == "duckstation" { "./.duckstation_home" } else { "./pcsx2_data" };
+    // IMPORTANT: Each plugin has its own config dir structure
+    let config_dir_name = match driver_id.as_str() {
+        "duckstation" => "./.duckstation_home",
+        "azahar" => ".",  // Azahar uses root: config/azahar-emu is created by setup_environment
+        _ => "./pcsx2_data",  // PCSX2 and others
+    };
     
     // Obtenir les configurations de lancement depuis le plugin
     let (env_vars_list, args_before, args_after) = if let Some(plugin) = manager.configured_driver_for(&emulator_path) {

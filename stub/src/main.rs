@@ -216,17 +216,50 @@ fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
         // Simple log for detection start
         // eprintln!("🎮 [Azahar] Début détection manettes...");
         
-        let has_gamepad = detect_gamepad();
+        // Fetch dynamic GUID first (Best method: uses SDL2)
+        let guid = ryujinx_input::get_first_controller_guid();
+        
+        // Fallback detection via filesystem
+        let fs_gamepad = detect_gamepad();
+        
+        // Determine if we have a gamepad:
+        // 1. GUID found via SDL2 (most reliable)
+        // 2. FS detection found JS or Event device (fallback if SDL fails)
+        let has_gamepad = guid.is_some() || fs_gamepad;
+        
         let profile_index = if has_gamepad { 0 } else { 1 };
         
-        // Modifier le fichier qt-config.ini pour changer le profil actif
-        let config_file = target_dir.join("config/azahar-emu/qt-config.ini");
+        // Resolve config path dynamically from env vars (like in launcher mode)
+        let mut config_home = None;
+        for (key, val) in &config.env_vars {
+             if key == "XDG_CONFIG_HOME" {
+                 // We need to resolve the placeholder manually here as we haven't launched the process yet
+                 let resolved_val = val.replace("{config_dir}", &config_path.to_string_lossy());
+                 // Handle relative paths
+                 let final_path = if resolved_val.starts_with("./") {
+                     target_dir.join(&resolved_val).to_string_lossy().to_string()
+                 } else {
+                     resolved_val
+                 };
+                 config_home = Some(PathBuf::from(final_path));
+                 break;
+             }
+        }
+
+        // Use resolved path or fallback to previous hardcoded guess (though incorrect)
+        let config_file = if let Some(home) = config_home {
+            home.join("azahar-emu/qt-config.ini")
+        } else {
+            target_dir.join("config/azahar-emu/qt-config.ini")
+        };
+        
+        eprintln!("   📂 [Azahar-Portable] Config cible: {:?}", config_file);
         
         if config_file.exists() {
-             // Fetch dynamic GUID
-             let guid = ryujinx_input::get_first_controller_guid();
              if let Some(ref g) = guid {
                  eprintln!("   🎮 GUID détecté et injecté: {}", g);
+             } else if has_gamepad {
+                 eprintln!("   🎮 Manette détectée (FS) mais échec lecture GUID SDL. Utilisation GUID par défaut.");
              }
 
              // Only log action
