@@ -401,7 +401,7 @@ fn forge_portable_executable(
                 // Skip header line (usually just number of tracks)
                 if parts.len() >= 5 {
                     // Filename is at index 4, but might be quoted
-                    let mut filename = parts[4].trim_matches('"');
+                    let filename = parts[4].trim_matches('"');
                     
                     let bin_path = parent_dir.join(filename);
                     if bin_path.exists() {
