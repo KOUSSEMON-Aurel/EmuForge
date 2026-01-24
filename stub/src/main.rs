@@ -475,3 +475,50 @@ fn is_ryujinx_emulator(path: &std::path::Path) -> bool {
     
     false
 }
+
+/// Detect if a gamepad is connected (Linux only for now)
+fn detect_gamepad() -> bool {
+    // Simple check: looking for /dev/input/js* devices
+    if let Ok(entries) = std::fs::read_dir("/dev/input") {
+        for entry in entries.flatten() {
+            if let Some(name) = entry.file_name().to_str() {
+                if name.starts_with("js") {
+                    return true;
+                }
+            }
+        }
+    }
+    false
+}
+
+/// Update Azahar config profile
+fn update_azahar_profile(config_path: &PathBuf, profile_index: i32) -> io::Result<()> {
+    // Read the file content
+    let content = fs::read_to_string(config_path)?;
+    let mut new_lines = Vec::new();
+    let mut in_controls = false;
+
+    for line in content.lines() {
+        if line.trim() == "[Controls]" {
+            in_controls = true;
+            new_lines.push(line.to_string());
+            continue;
+        }
+
+        if in_controls {
+            if line.trim().starts_with("[") {
+                in_controls = false; // Next section
+            } else if line.trim().starts_with("profile=") {
+                // Modify active profile
+                new_lines.push(format!("profile={}", profile_index));
+                continue;
+            }
+        }
+        
+        new_lines.push(line.to_string());
+    }
+
+    // Write back
+    fs::write(config_path, new_lines.join("\n"))?;
+    Ok(())
+}
