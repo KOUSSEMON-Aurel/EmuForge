@@ -125,18 +125,19 @@ hide_cursor = true
                         // Générer les bindings pour chaque port
                         bindings.push_str("[input.bindings]\n");
                         
-                        for port in 1..=4 {
-                            let port_idx = port - 1;
+                        // Toujours activer le clavier sur port 1
+                        bindings.push_str("port1_driver = 'usb-xbox-gamepad'\n");
+                        bindings.push_str("port1 = 'keyboard'\n");
+                        
+                        // Ajouter les manettes sur les ports 2-4
+                        for port in 2..=4 {
+                            let port_idx = port - 2; // port 2 = joystick 0, port 3 = joystick 1
                             if port_idx < num_joysticks && controller_subsystem.is_game_controller(port_idx) {
                                 if let Ok(controller) = controller_subsystem.open(port_idx) {
                                     let guid_str = format!("{:032x}", controller.instance_id() as u128);
                                     bindings.push_str(&format!("port{}_driver = 'usb-xbox-gamepad'\n", port));
                                     bindings.push_str(&format!("port{} = '{}'\n", port, guid_str));
                                 }
-                            } else if port == 1 {
-                                // Port 1 par défaut: clavier si pas de manette
-                                bindings.push_str("port1_driver = 'usb-xbox-gamepad'\n");
-                                bindings.push_str("port1 = 'keyboard'\n");
                             }
                         }
                     }
@@ -432,12 +433,13 @@ impl EmulatorPlugin for XemuPlugin {
             rom_path.to_path_buf()
         });
 
-        // xemu Args: -dvd_path <iso> -machine xbox,short-animation=on
+        // xemu Args: -dvd_path <iso> -full-screen -machine xbox,short-animation=on
         let args = vec![
+            "-full-screen".to_string(),
             "-dvd_path".to_string(),
         ];
 
-        // Arguments après la ROM: skip animation + fullscreen géré par le TOML
+        // Arguments après la ROM: skip animation
         let args_after_rom = vec![
             "-machine".to_string(),
             "xbox,short-animation=on".to_string(),
