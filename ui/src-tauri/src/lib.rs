@@ -389,6 +389,30 @@ fn forge_portable_executable(
                     }
                 }
             }
+        } else if ext.to_string_lossy().eq_ignore_ascii_case("gdi") {
+            let content = std::fs::read_to_string(&rom_path)
+                .map_err(|e| format!("Failed to read GDI file: {}", e))?;
+            
+            let parent_dir = rom_path.parent().unwrap_or(Path::new("."));
+            
+            for line in content.lines() {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                // GDI format: track_id offset type sector_size filename ...
+                // Skip header line (usually just number of tracks)
+                if parts.len() >= 5 {
+                    // Filename is at index 4, but might be quoted
+                    let mut filename = parts[4].trim_matches('"');
+                    
+                    let bin_path = parent_dir.join(filename);
+                    if bin_path.exists() {
+                         let _ = app.emit("forge-progress", serde_json::json!({ 
+                            "percentage": 0, 
+                            "message": format!("Détection dépendance GDI: {}...", filename) 
+                        }));
+                        add_file_to_zip(&app, &mut zip, &bin_path, filename, rom_options)?;
+                    }
+                }
+            }
         }
     }
     
