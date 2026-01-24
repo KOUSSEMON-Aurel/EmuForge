@@ -67,15 +67,20 @@ flashrom_path = '{flashrom}'
 eeprom_path = '{eeprom}'
 hdd_path = '{hdd}'
 
+[display]
+renderer = 'VULKAN'
+
 [display.quality]
 surface_scale = 3
 
 [display.window]
 fullscreen_on_startup = true
+startup_size = '1920x1080'
 last_width = 1920
 last_height = 1080
 
 [display.ui]
+aspect_ratio = '16x9'
 show_menubar = true
 show_notifications = true
 hide_cursor = true
@@ -435,12 +440,12 @@ impl EmulatorPlugin for XemuPlugin {
 
         // xemu Args: -dvd_path <iso> -full-screen -machine xbox,short-animation=on
         let args = vec![
-            "-full-screen".to_string(),
             "-dvd_path".to_string(),
         ];
 
-        // Arguments après la ROM: skip animation
+        // Arguments après la ROM: fullscreen + skip animation
         let args_after_rom = vec![
+            "-full-screen".to_string(),
             "-machine".to_string(),
             "xbox,short-animation=on".to_string(),
         ];
