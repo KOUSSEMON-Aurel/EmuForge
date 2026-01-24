@@ -108,7 +108,7 @@ impl EmulatorDownloader {
                  "extract-xiso" => "extract-xiso",
                  "flycast" => "flycast.AppImage",
                  "azahar" => "azahar.AppImage", 
-                 "melonds" => "melonDS", 
+                 "melonds" => "melonDS-x86_64.AppImage", 
                  _ => "emulator"
              }.to_string()
         }
