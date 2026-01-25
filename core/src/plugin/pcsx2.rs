@@ -371,94 +371,47 @@ impl EmulatorPlugin for Pcsx2Plugin {
         Err(anyhow::anyhow!("PCSX2 executable not found."))
     }
 
-    fn prepare_launch_config(&self, rom_path: &Path, output_dir: &Path) -> Result<LaunchConfig> {
+    fn prepare_launch_config(&self, rom_path: &Path, _output_dir: &Path) -> Result<LaunchConfig> {
         let binary = self.find_binary().context("Failed to locate PCSX2 binary")?;
-        
-        // --- PORTABLE MODE STRATEGY ---
-        // PCSX2 AppImage supports -portable flag, which creates all data alongside the binary.
-        // We create a dedicated data folder and use -portable to isolate this game's config.
-        
-        let config_dir = output_dir.join("pcsx2_data");
-        std::fs::create_dir_all(&config_dir).context("Failed to create config dir")?;
-        
-        // Convert to absolute path - critical for XDG_CONFIG_HOME to work
-        let config_dir = config_dir.canonicalize().context("Failed to get absolute path for config dir")?;
+        let binary_dir = binary.parent().ok_or_else(|| anyhow::anyhow!("Binary has no parent directory"))?;
 
         // --- WIN32 AUTO-PORTABLE MODE ---
-        // On Windows, command line arguments like -cfgpath are unreliable with Qt versions.
-        // The most robust method is to force portable mode by creating "portable.ini" next to the exe.
-        // This makes PCSX2 look for configs in its own directory (pcsx2_data/PCSX2/inis usually).
+        // Force portable mode and ensure config exists in the binary directory.
         #[cfg(target_os = "windows")]
         {
-            if let Some(binary_dir) = binary.parent() {
-                let portable_ini = binary_dir.join("portable.ini");
-                if !portable_ini.exists() {
-                    eprintln!("⚙️  Creating portable.ini to force PCSX2 portable mode at: {:?}", portable_ini);
-                    if let Err(e) = std::fs::File::create(&portable_ini) {
-                        eprintln!("⚠️  Failed to create portable.ini: {}", e);
-                    } else {
-                        eprintln!("✅ portable.ini created successfully.");
-                    }
+            let portable_ini = binary_dir.join("portable.ini");
+            if !portable_ini.exists() {
+                eprintln!("⚙️  Creating portable.ini to force PCSX2 portable mode");
+                if let Err(e) = std::fs::File::create(&portable_ini) {
+                    eprintln!("⚠️  Failed to create portable.ini: {}", e);
+                }
+            }
+
+            // Also ensure PCSX2.ini is written to binary_dir/inis/PCSX2.ini
+            // This ensures Standalone launchers (which invoke this) have the config ready.
+            let inis_dir = binary_dir.join("inis");
+            if let Ok(_) = std::fs::create_dir_all(&inis_dir) {
+                let ini_path = inis_dir.join("PCSX2.ini");
+                eprintln!("📝 Ensuring config exists at: {:?}", ini_path);
+                // We overwrite to ensure settings are correct
+                if let Err(e) = std::fs::write(&ini_path, PCSX2_INI_CONTENT) {
+                    eprintln!("⚠️  Failed to write PCSX2.ini in launch config: {}", e);
                 }
             }
         }
 
-
-        // Create bios subfolder - must be inside PCSX2/ to match XDG structure
-        // When XDG_CONFIG_HOME=pcsx2_data, PCSX2 looks for bios in pcsx2_data/PCSX2/bios
-        let bios_dir = config_dir.join("PCSX2").join("bios");
-        std::fs::create_dir_all(&bios_dir).context("Failed to create bios dir")?;
-
-        // Generate minimal ini to skip the First Run Wizard
-        // PCSX2 Qt with XDG_CONFIG_HOME looks for config in $XDG_CONFIG_HOME/PCSX2/inis/
-        let ini_path = config_dir.join("PCSX2").join("inis").join("PCSX2.ini");
-        std::fs::create_dir_all(ini_path.parent().unwrap())?;
-        
-        // The critical setting is SetupWizardIncomplete = false
-        // We also need to point to the bios folder within our config structure
-        // Include default keyboard bindings so the game responds to input
-        std::fs::write(&ini_path, PCSX2_INI_CONTENT).context("Failed to write PCSX2.ini")?;
-
-        // Note: SDL controller auto-mapping requires the PCSX2 Qt GUI to be used at least once.
-        // Users will need to open PCSX2 normally and use "Automatic Mapping" for gamepads.
-        // The launcher provides keyboard bindings that work out of the box.
-
-        // Argument order matters: ROM is added first by the stub logic now.
-        // -batch: Exits after game closes
-        // -nogui: Hides main window
-        // -fullscreen: Starts in fullscreen
-        // on Windows, XDG_CONFIG_HOME is often ignored by Qt apps unless forced.
-        // We explicitly pass -config to point to our directory.
-        // Also note: PCSX2 Qt arguments regarding config paths can be tricky.
-        // Using -portable might be better if we could, but we can't create 'portable.ini' next to the exe easily.
-        
         let args = vec![
             "-batch".to_string(),
             "-nogui".to_string(),
             "-fullscreen".to_string(),
-            // Remove -cfgpath as it causes "unknown parameter" errors on some Windows versions.
-            // We rely on XDG_CONFIG_HOME / PCSX2_USER_PATH env vars set below.
-            // "-cfgpath".to_string(),
-            // config_dir.to_string_lossy().to_string(), 
         ];
         
-        // Use environment variables to control config location as fallback
+        // Point env vars to binary dir for consistency
+        let binary_dir_str = binary_dir.to_string_lossy().to_string();
         let env_vars = vec![
-            ("XDG_CONFIG_HOME".to_string(), config_dir.to_string_lossy().to_string()),
-            ("PCSX2_USER_PATH".to_string(), config_dir.to_string_lossy().to_string()),
+            ("XDG_CONFIG_HOME".to_string(), binary_dir_str.clone()),
+            ("PCSX2_USER_PATH".to_string(), binary_dir_str),
         ];
-        
-        // We store the bios_dir path in a special field so lib.rs can copy the BIOS file there
-        // Actually, LaunchConfig doesn't have a bios_dir field. We can use working_dir or just
-        // handle it differently. Let me reconsider.
-        //
-        // Alternative: Return the bios destination path via an environment variable or just
-        // have lib.rs reconstruct it (output/pcsx2_data/bios/).
-        //
-        // Simpler: lib.rs will check if driver_id == "pcsx2", and if so, copy bios to
-        // output_dir/pcsx2_data/bios/<filename>.
-        //
-        // For now, let's just return the config. The copying logic will be in lib.rs.
 
         Ok(LaunchConfig {
             emulator_path: binary,
