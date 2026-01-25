@@ -547,7 +547,17 @@ fn forge_portable_executable(
         .map_err(|e| format!("Failed to serialize config: {}", e))?;
     
     // Step 4: Concatenate: stub + marker + config_len + config + zip
-    let output_path = output_dir_canonical.join(sanitize_filename(&game_name));
+    let base_name = sanitize_filename(&game_name);
+    #[cfg(windows)]
+    let final_name = if base_name.to_lowercase().ends_with(".exe") {
+        base_name
+    } else {
+        format!("{}.exe", base_name)
+    };
+    #[cfg(not(windows))]
+    let final_name = base_name;
+
+    let output_path = output_dir_canonical.join(final_name);
     let mut output_file = File::create(&output_path)
         .map_err(|e| format!("Failed to create output file: {}", e))?;
     
