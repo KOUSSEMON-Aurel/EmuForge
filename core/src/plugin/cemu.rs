@@ -153,11 +153,13 @@ impl EmulatorPlugin for CemuPlugin {
         // - Inject into XML template
         // - Write to controller0.xml
         
+        #[allow(unused_mut)]
         let mut gamepad_count = 0;
         
         // Use a block to ensure SDL context is dropped or we handle it gracefully
         // Note: Initializing SDL in a plugin might be tricky if the main app also uses it, 
         // but here we just need it for a split second to check devices.
+        #[cfg(feature = "sdl2")]
         if let Ok(sdl_context) = sdl2::init() {
             // We need both subsystems: 
             // - GameController to check if it's a supported gamepad (mapping available)

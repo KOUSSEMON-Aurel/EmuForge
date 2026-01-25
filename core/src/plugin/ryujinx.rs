@@ -185,9 +185,11 @@ impl RyujinxPlugin {
         // This can happen if SDL2 init conflicts with other libraries in the main process.
         let handle = std::thread::spawn(|| {
             let mut configs = Vec::new();
+            #[allow(unused_mut)]
             let mut player_idx_counter = 1;
 
             // 1. Scan SDL2 Controllers
+            #[cfg(feature = "sdl2")]
             if let Ok(sdl_context) = sdl2::init() {
                 if let Ok(game_controller_subsystem) = sdl_context.game_controller() {
                     let available_joysticks = game_controller_subsystem.num_joysticks().unwrap_or(0);

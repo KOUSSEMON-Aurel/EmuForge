@@ -333,6 +333,7 @@ fn forge_portable_executable(
         .to_string();
     
     // Ensure emulator is executable
+    #[allow(unused_mut)]
     let mut emu_options = options.clone();
     #[cfg(unix)]
     {

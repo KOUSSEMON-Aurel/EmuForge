@@ -122,6 +122,7 @@ hide_cursor = true
         bindings.push_str("[input]\nbackground_input_capture = true\n\n");
         
         // Essayer de détecter les manettes avec SDL2
+        #[cfg(feature = "sdl2")]
         match sdl2::init() {
             Ok(sdl) => {
                 match sdl.game_controller() {
@@ -180,6 +181,14 @@ hide_cursor = true
                 bindings.push_str("port1_driver = 'usb-xbox-gamepad'\n");
                 bindings.push_str("port1 = 'keyboard'\n");
             }
+        }
+        
+        #[cfg(not(feature = "sdl2"))]
+        {
+             // Fallback: clavier uniquement (No SDL2)
+            bindings.push_str("[input.bindings]\n");
+            bindings.push_str("port1_driver = 'usb-xbox-gamepad'\n");
+            bindings.push_str("port1 = 'keyboard'\n");
         }
         
         bindings

@@ -3,6 +3,7 @@ use crate::plugin::EmulatorPlugin;
 use anyhow::{Result, Context};
 use std::path::{Path, PathBuf};
 use std::fs;
+#[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 
 /// Télécharge appimagetool de manière synchrone via curl (évite les problèmes de runtime tokio)
@@ -37,7 +38,9 @@ fn download_appimagetool_sync() -> Result<PathBuf> {
     }
     
     // Rendre exécutable
+    #[allow(unused_mut)]
     let mut perms = fs::metadata(&appimagetool_path)?.permissions();
+    #[cfg(unix)]
     perms.set_mode(0o755);
     fs::set_permissions(&appimagetool_path, perms)?;
     
