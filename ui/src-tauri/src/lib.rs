@@ -510,7 +510,7 @@ fn forge_portable_executable(
     // IMPORTANT: Each plugin has its own config dir structure
     let config_dir_name = match driver_id.as_str() {
         "duckstation" => "./.duckstation_home",
-        "azahar" => ".",  // Azahar uses root: config/azahar-emu is created by setup_environment
+        "azahar" | "melonds" => ".",  // Azahar and melonDS use root: config/ folder
         _ => "./pcsx2_data",  // PCSX2 and others
     };
     
