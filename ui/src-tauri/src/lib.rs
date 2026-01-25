@@ -308,8 +308,13 @@ fn forge_portable_executable(
     // Find the compiled stub
     // Since we are in a workspace, artifacts are usually in the root target dir
     // We check both stub/target (standalone) and ../target (workspace)
-    let standalone_path = stub_crate.join("target/release/emuforge-stub");
-    let workspace_path = stub_crate.parent().unwrap().join("target/release/emuforge-stub");
+    #[cfg(windows)]
+    let binary_name = "emuforge-stub.exe";
+    #[cfg(not(windows))]
+    let binary_name = "emuforge-stub";
+
+    let standalone_path = stub_crate.join("target/release").join(binary_name);
+    let workspace_path = stub_crate.parent().unwrap().join("target/release").join(binary_name);
     
     let stub_binary = if workspace_path.exists() {
         workspace_path
