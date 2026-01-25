@@ -245,14 +245,14 @@ impl EmulatorPlugin for Pcsx2Plugin {
         Box::new(Pcsx2Plugin::new(Some(binary_path)))
     }
 
-    fn portable_env_vars(&self, config_dir: &Path) -> Vec<(String, String)> {
+    fn portable_env_vars(&self, _config_dir: &Path) -> Vec<(String, String)> {
         // PCSX2 AppImage utilise souvent XDG_CONFIG_HOME
         // Structure attendue: $XDG_CONFIG_HOME/PCSX2/inis/PCSX2.ini
         // Notre config_dir est "pcsx2_data", qui contient le dossier "PCSX2".
+        // FIX: Utiliser {exe_dir} pour que le Stub remplace par le dossier de l'executable au runtime
         vec![
-            ("XDG_CONFIG_HOME".to_string(), config_dir.to_string_lossy().to_string()),
-            // On garde aussi l'autre variable au cas où, pointant aussi vers la racine de config
-            ("PCSX2_USER_PATH".to_string(), config_dir.to_string_lossy().to_string()),
+            ("XDG_CONFIG_HOME".to_string(), "{exe_dir}/pcsx2_data".to_string()),
+            ("PCSX2_USER_PATH".to_string(), "{exe_dir}/pcsx2_data".to_string()),
         ]
     }
 

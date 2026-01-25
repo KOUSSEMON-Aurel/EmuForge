@@ -234,7 +234,9 @@ fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
         for (key, val) in &config.env_vars {
              if key == "XDG_CONFIG_HOME" {
                  // We need to resolve the placeholder manually here as we haven't launched the process yet
-                 let resolved_val = val.replace("{config_dir}", &config_path.to_string_lossy());
+                 let resolved_val = val
+                     .replace("{config_dir}", &config_path.to_string_lossy())
+                     .replace("{exe_dir}", &target_dir.to_string_lossy());
                  // Handle relative paths
                  let final_path = if resolved_val.starts_with("./") {
                      target_dir.join(&resolved_val).to_string_lossy().to_string()
@@ -284,7 +286,9 @@ fn run_portable_mode(exe_path: PathBuf, config: PortableConfig) {
     // Apply environment variables from config (with path substitution)
     for (key, value) in &config.env_vars {
         // Substitute {config_dir} placeholder with actual path
-        let resolved_value = value.replace("{config_dir}", &config_path.to_string_lossy());
+        let resolved_value = value
+            .replace("{config_dir}", &config_path.to_string_lossy())
+            .replace("{exe_dir}", &target_dir.to_string_lossy());
         
         // Handle relative paths ONLY if they start with ./
         // This prevents strings like "xcb" or "wayland" from being treated as paths
@@ -488,8 +492,16 @@ fn run_launcher_mode() {
         cmd.current_dir(working_dir);
     }
 
+    // Get executable directory for relative path resolution
+    let exe_dir = env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+        .unwrap_or_else(|| PathBuf::from("."));
+
     for (key, value) in config.env_vars {
-        cmd.env(key, value);
+        // Support {exe_dir} placeholder for relative paths in launcher mode
+        let resolved_value = value.replace("{exe_dir}", &exe_dir.to_string_lossy());
+        cmd.env(key, resolved_value);
     }
 
     // Determine if we need DuckStation specific HOME isolation
